@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="65%">
+      <stop offset="0%" stop-color="#1a080d"/>
+      <stop offset="55%" stop-color="#070910"/>
+      <stop offset="100%" stop-color="#020306"/>
+    </radialGradient>
+    <radialGradient id="moon" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ef4444" stop-opacity="0.75"/>
+      <stop offset="65%" stop-color="#991b1b" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#991b1b" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ghostGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5eead4"/>
+      <stop offset="55%" stop-color="#14b8a6"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <!-- Dark Haunted Background -->
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
+  <!-- Blood Moon Halo -->
+  <circle cx="256" cy="185" r="165" fill="url(#moon)"/>
+  <circle cx="256" cy="185" r="118" fill="#7f1d1d" opacity="0.45"/>
+  <!-- Perspective Haunted Subway Rails -->
+  <path d="M108 468 L212 292 M404 468 L300 292" stroke="#64748b" stroke-width="14" stroke-linecap="round"/>
+  <path d="M112 468 L214 292 M400 468 L298 292" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
+  <path d="M138 434 L374 434 M164 388 L348 388 M190 344 L322 344 M208 310 L304 310" stroke="#334155" stroke-width="10" stroke-linecap="round"/>
+  <!-- 3D Shaded Hooded Ghost Figure (No Text) -->
+  <path d="M256 76 C186 76 146 134 146 208 C146 274 128 342 114 382 L174 352 L214 384 L256 350 L298 384 L338 352 L398 382 C384 342 366 274 366 208 C366 134 326 76 256 76 Z" fill="url(#ghostGlow)"/>
+  <!-- Inner Dark Hood Void -->
+  <path d="M256 112 C208 112 180 152 180 206 C180 246 206 272 256 272 C306 272 332 246 332 206 C332 152 304 112 256 112 Z" fill="#03060c"/>
+  <!-- Glowing Hollow Crimson & Cyan Eyes -->
+  <ellipse cx="222" cy="192" rx="18" ry="24" fill="#ef4444"/>
+  <ellipse cx="290" cy="192" rx="18" ry="24" fill="#ef4444"/>
+  <circle cx="222" cy="192" r="8" fill="#fef08a"/>
+  <circle cx="290" cy="192" r="8" fill="#fef08a"/>
+</svg>

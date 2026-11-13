@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Ghost Rail: Escape the Dead Station</string>
+    <string name="title_activity_main">Ghost Rail: Escape the Dead Station</string>
+    <string name="package_name">com.ghostrail.escape</string>
+    <string name="custom_url_scheme">com.ghostrail.escape</string>
+</resources>

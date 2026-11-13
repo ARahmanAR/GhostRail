@@ -1,0 +1,3872 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#05070b" />
+  <!-- Game Icon & PWA Manifest (Pure Haunted Ghost & Rail Symbol — Zero Text on Icon) -->
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-title" content="Ghost Rail" />
+  <title>Ghost Rail: Escape the Dead Station</title>
+  <meta name="description" content="A dark, terrifying 3D endless runner game set in a haunted subway station." />
+  <meta property="og:title" content="Ghost Rail: Escape the Dead Station" />
+  <meta property="og:description" content="A dark, terrifying 3D endless runner game set in a haunted subway station." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <!-- Google Fonts: Cinzel (Gothic Display), Plus Jakarta Sans (UI Body), JetBrains Mono (Tabular Telemetry) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Three.js loaded directly via self-contained CDN ES Module -->
+
+  <style>
+    :root {
+      --bg-void: #05070b;
+      --bg-surface: rgba(10, 14, 22, 0.92);
+      --bg-card: rgba(15, 22, 34, 0.94);
+      --border-subtle: rgba(148, 163, 184, 0.16);
+      --border-blood: rgba(220, 38, 38, 0.45);
+      --border-soul: rgba(45, 212, 191, 0.4);
+      --text-primary: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent-soul: #2dd4bf;
+      --accent-blood: #ef4444;
+      --accent-amber: #f59e0b;
+      --accent-violet: #a855f7;
+      --font-display: 'Cinzel', Georgia, serif;
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-void);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      touch-action: none;
+      overscroll-behavior: none;
+    }
+
+    /* 3D WebGL Viewport Container */
+    #webgl-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      background: radial-gradient(circle at 50% 30%, #09040a 0%, #020306 85%);
+    }
+
+    #webgl-container canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Touch Swipe Feedback Canvas */
+    #fx-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    /* Atmospheric Haunted Horror Vignette, Heartbeat & Chromatic Aberration Layers */
+    #vignette-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 50% 48%, transparent 46%, rgba(8, 2, 6, 0.55) 78%, rgba(2, 2, 5, 0.92) 100%),
+        repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.08) 0px, rgba(0, 0, 0, 0.08) 1px, transparent 1px, transparent 3px);
+      box-shadow: inset 0 0 90px rgba(127, 29, 29, 0.25);
+      transition: box-shadow 0.15s ease-out;
+    }
+
+    #heartbeat-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      opacity: 0;
+      background: radial-gradient(circle at 50% 50%, transparent 35%, rgba(153, 27, 27, 0.45) 78%, rgba(220, 38, 38, 0.78) 100%);
+    }
+
+    #scare-flash-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+      opacity: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.08s ease-out;
+    }
+
+    /* Chromatic aberration pulse when danger is near */
+    .chroma-danger {
+      text-shadow: -2px 0 rgba(239, 68, 68, 0.8), 2px 0 rgba(45, 212, 191, 0.8);
+    }
+
+    /* Flickering Horror Title Animation */
+    @keyframes horrorFlicker {
+      0%, 18%, 22%, 25%, 53%, 57%, 100% {
+        opacity: 1;
+        text-shadow: 0 0 18px rgba(45, 212, 191, 0.45), 0 0 42px rgba(220, 38, 38, 0.35);
+      }
+      20%, 24%, 55% {
+        opacity: 0.45;
+        text-shadow: none;
+      }
+      56% {
+        opacity: 0.85;
+        transform: translateX(-1px);
+      }
+    }
+
+    .title-flicker {
+      font-family: var(--font-display);
+      animation: horrorFlicker 5.5s infinite;
+      text-wrap: balance;
+    }
+
+    .game-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      text-align: left;
+    }
+
+    .game-brand img {
+      width: 58px;
+      height: 58px;
+      border: 1px solid rgba(45, 212, 191, 0.45);
+      border-radius: 16px;
+      box-shadow: 0 0 26px rgba(45, 212, 191, 0.2), 0 0 32px rgba(239, 68, 68, 0.14);
+    }
+
+    .game-brand-name {
+      font-family: var(--font-display);
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 0.16em;
+      color: #e2e8f0;
+    }
+
+    .game-brand-subtitle {
+      margin-top: 3px;
+      color: #94a3b8;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+    }
+
+    .tabular-nums {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* UI Overlay Root */
+    #ui-root {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 46px;
+      padding: 10px 22px;
+      border-radius: 10px;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      flex-shrink: 0;
+      cursor: pointer;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      transition: transform 0.14s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.14s ease, background-color 0.14s ease;
+    }
+
+    .btn:hover {
+      border-color: rgba(241, 245, 249, 0.38);
+      background: rgba(24, 34, 52, 0.96);
+    }
+
+    .btn:active {
+      transform: scale(0.96);
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #991b1b 0%, #7f1d1d 100%);
+      border-color: #ef4444;
+      color: #ffffff;
+      box-shadow: 0 6px 24px rgba(220, 38, 38, 0.32);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(180deg, #b91c1c 0%, #991b1b 100%);
+      border-color: #f87171;
+    }
+
+    .btn-soul {
+      background: linear-gradient(180deg, #0f766e 0%, #115e59 100%);
+      border-color: #2dd4bf;
+      color: #f0fdfa;
+      box-shadow: 0 6px 22px rgba(45, 212, 191, 0.22);
+    }
+
+    .btn-soul:hover {
+      background: linear-gradient(180deg, #0d9488 0%, #0f766e 100%);
+    }
+
+    .btn-icon {
+      width: 46px;
+      height: 46px;
+      padding: 0;
+      border-radius: 10px;
+    }
+
+    /* Top HUD Bar */
+    #hud-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      max-width: 1380px;
+      margin: 0 auto;
+    }
+
+    .hud-panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 10px 16px;
+    }
+
+    .hud-metrics {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .metric-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .metric-value {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    /* Fear Meter */
+    .fear-container {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 165px;
+    }
+
+    .fear-track {
+      width: 100%;
+      height: 8px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .fear-fill {
+      height: 100%;
+      width: 12%;
+      background: linear-gradient(90deg, #2dd4bf 0%, #f59e0b 50%, #ef4444 100%);
+      transition: width 0.15s ease-out;
+    }
+
+    /* Active Powerups Strip */
+    #powerup-strip {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .powerup-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-soul);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .powerup-bar {
+      width: 64px;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .powerup-bar-fill {
+      height: 100%;
+      background: var(--accent-soul);
+    }
+
+    /* Zone Banner & Event Toast */
+    #center-announcer {
+      position: fixed;
+      top: 92px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 8;
+      pointer-events: none;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .zone-banner {
+      font-family: var(--font-display);
+      font-size: clamp(18px, 3vw, 28px);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #f8fafc;
+      background: rgba(8, 11, 18, 0.88);
+      border: 1px solid rgba(220, 38, 38, 0.45);
+      padding: 8px 24px;
+      border-radius: 8px;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    .zone-banner.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast-alert {
+      font-size: 13px;
+      font-weight: 600;
+      color: #2dd4bf;
+      background: rgba(8, 12, 20, 0.92);
+      border: 1px solid rgba(45, 212, 191, 0.35);
+      padding: 6px 16px;
+      border-radius: 6px;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    .toast-alert.visible {
+      opacity: 1;
+    }
+
+    /* Modal Screens (Click-to-Start, Main Menu, Character Select, Pause, Game Over) */
+    .overlay-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      background: radial-gradient(circle at 50% 25%, rgba(15, 23, 42, 0.72) 0%, rgba(4, 6, 11, 0.94) 85%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .modal-shell {
+      width: 100%;
+      max-width: 980px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 18px;
+      padding: clamp(18px, 3vw, 32px);
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.85);
+      max-height: 92vh;
+      overflow-y: auto;
+    }
+
+    /* Grids for Characters & Missions */
+    .char-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+      gap: 14px;
+      margin: 18px 0;
+    }
+
+    .char-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .char-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(45, 212, 191, 0.5);
+    }
+
+    .char-card.selected {
+      border-color: var(--accent-soul);
+      background: rgba(19, 38, 47, 0.92);
+      box-shadow: 0 0 24px rgba(45, 212, 191, 0.18);
+    }
+
+    .mission-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .mission-item {
+      background: rgba(15, 23, 38, 0.88);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .mission-progress-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .mission-progress-fill {
+      height: 100%;
+      background: var(--accent-soul);
+      transition: width 0.25s ease;
+    }
+
+    /* On-Screen Mobile Touch Controls (Ergonomic Thumb Zone) */
+    #mobile-controls {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 1380px;
+      margin: 0 auto;
+      padding-bottom: max(4px, env(safe-area-inset-bottom));
+    }
+
+    .touch-cluster {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .touch-btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 16px;
+      background: rgba(10, 15, 26, 0.82);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: transform 0.1s ease, background-color 0.1s ease, border-color 0.1s ease;
+    }
+
+    .touch-btn:active, .touch-btn.pressed {
+      transform: scale(0.92);
+      background: rgba(45, 212, 191, 0.25);
+      border-color: #2dd4bf;
+    }
+
+    /* Collapsible Bottom Dock for Controls / Camera / Mobile Options */
+    #bottom-dock-wrapper {
+      position: fixed;
+      bottom: max(12px, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 12;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: none;
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #bottom-dock-wrapper.collapsed #bottom-dock-body {
+      display: none;
+    }
+
+    .dock-toggle {
+      pointer-events: auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-bottom: none;
+      border-radius: 8px 8px 0 0;
+      padding: 4px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    #bottom-dock-body {
+      pointer-events: auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: min(920px, 94vw);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 768px) {
+      .metric-value {
+        font-size: 16px;
+      }
+      .hud-metrics {
+        gap: 12px;
+      }
+      .fear-container {
+        min-width: 115px;
+      }
+      .touch-btn {
+        width: 56px;
+        height: 56px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- 3D WebGL Scene Container -->
+  <div id="webgl-container" aria-label="3D Haunted Subway Track Viewport"></div>
+
+  <!-- Atmospheric Overlays -->
+  <div id="vignette-layer"></div>
+  <div id="heartbeat-layer"></div>
+  <canvas id="fx-canvas"></canvas>
+
+  <!-- Jump Scare Flash Layer -->
+  <div id="scare-flash-layer">
+    <svg width="280" height="340" viewBox="0 0 200 240" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 0 28px rgba(239,68,68,0.9));">
+      <ellipse cx="100" cy="110" rx="68" ry="88" fill="#cbd5e1" fill-opacity="0.88" />
+      <ellipse cx="72" cy="95" rx="18" ry="24" fill="#020617" />
+      <ellipse cx="128" cy="95" rx="18" ry="24" fill="#020617" />
+      <circle cx="72" cy="95" r="6" fill="#ef4444" />
+      <circle cx="128" cy="95" r="6" fill="#ef4444" />
+      <path d="M92 122 L100 105 L108 122 Z" fill="#020617" />
+      <ellipse cx="100" cy="162" rx="28" ry="34" fill="#020617" />
+      <path d="M78 152 L122 152 M82 172 L118 172" stroke="#94a3b8" stroke-width="3" />
+    </svg>
+  </div>
+
+  <!-- Center Zone & Event Announcer -->
+  <div id="center-announcer">
+    <div id="zone-banner" class="zone-banner">ZONE I · DEAD STATION</div>
+    <div id="toast-alert" class="toast-alert">SOUL MAGNET ACTIVE</div>
+  </div>
+
+  <!-- Active HUD Overlay -->
+  <div id="ui-root">
+    <!-- Top HUD -->
+    <header id="hud-top">
+      <div>
+        <div class="hud-panel hud-metrics interactive">
+          <div class="metric-item">
+            <span class="metric-label">Score</span>
+            <span id="hud-score" class="metric-value tabular-nums">0</span>
+          </div>
+          <span style="color: rgba(148,163,184,0.3);">·</span>
+          <div class="metric-item">
+            <span class="metric-label">Souls</span>
+            <span id="hud-souls" class="metric-value tabular-nums" style="color: var(--accent-soul);">0</span>
+          </div>
+          <span style="color: rgba(148,163,184,0.3);">·</span>
+          <div class="metric-item">
+            <span class="metric-label">Distance</span>
+            <span id="hud-distance" class="metric-value tabular-nums">0m</span>
+          </div>
+          <span style="color: rgba(148,163,184,0.3);">·</span>
+          <div class="metric-item">
+            <span class="metric-label">Zone</span>
+            <span id="hud-zone" class="metric-value" style="font-size: 14px; color: #cbd5e1;">Dead Station</span>
+          </div>
+          <span style="color: rgba(148,163,184,0.3);">·</span>
+          <div class="fear-container">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 600;">
+              <span style="color: #fca5a5;">REAPER PROXIMITY</span>
+              <span id="hud-fear-pct" class="tabular-nums" style="color: #f87171;">10%</span>
+            </div>
+            <div class="fear-track">
+              <div id="hud-fear-bar" class="fear-fill"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Active Power-Up Timers -->
+        <div id="powerup-strip"></div>
+      </div>
+
+      <!-- Top-Right Action Controls -->
+      <div style="display: flex; gap: 8px;" class="interactive">
+        <button id="btn-tilt-hud" class="btn btn-icon" title="Toggle Tilt-to-Steer (Gyroscope)" aria-label="Toggle Gyroscope Tilt">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        </button>
+        <button id="btn-fullscreen-hud" class="btn btn-icon" title="Fullscreen Mode" aria-label="Fullscreen Mode">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        </button>
+        <button id="btn-mute-hud" class="btn btn-icon" title="Toggle Sound" aria-label="Toggle Sound">
+          <svg id="icon-sound-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        </button>
+        <button id="btn-pause-hud" class="btn btn-icon" title="Pause Game (P / Esc)" aria-label="Pause Game">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Ergonomic On-Screen Touch Buttons for Mobile (Android & iOS) -->
+    <div id="mobile-controls" class="hidden">
+      <div class="touch-cluster">
+        <button id="touch-left" class="touch-btn" aria-label="Move Left Lane">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+          <span>LEFT</span>
+        </button>
+        <button id="touch-right" class="touch-btn" aria-label="Move Right Lane">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          <span>RIGHT</span>
+        </button>
+      </div>
+
+      <div class="touch-cluster">
+        <button id="touch-board" class="touch-btn" style="border-color: rgba(16, 185, 129, 0.45); color: #34d399;" aria-label="Summon Ghost Board">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>SHIELD</span>
+        </button>
+        <button id="touch-roll" class="touch-btn" aria-label="Roll Under">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+          <span>ROLL</span>
+        </button>
+        <button id="touch-jump" class="touch-btn" style="border-color: rgba(45, 212, 191, 0.5); color: #2dd4bf;" aria-label="Jump Over">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+          <span>JUMP</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Collapsible Bottom Control Dock (Zero Viewport Occlusion) -->
+  <div id="bottom-dock-wrapper">
+    <button id="btn-dock-toggle" class="dock-toggle">▾ Hide Controls (H)</button>
+    <div id="bottom-dock-body">
+      <span style="font-size: 12px; color: var(--text-muted);">
+        <strong style="color: #e2e8f0;">Controls:</strong> A/D or ◄/► Lane · W/Space/▲ Jump · S/▼ Roll · E Shield · Swipe on Touch
+      </span>
+      <span style="color: rgba(148,163,184,0.3);">|</span>
+      <button id="btn-music-mode" class="btn" style="min-height: 32px; padding: 4px 12px; font-size: 12px; border-color: rgba(239, 68, 68, 0.45); color: #fca5a5;">Music: Full Horror Mix</button>
+      <button id="btn-light-mode" class="btn" style="min-height: 32px; padding: 4px 12px; font-size: 12px; border-color: rgba(239, 68, 68, 0.45); color: #fca5a5;">Scene: Haunted Horror</button>
+      <button id="btn-touchpad-toggle" class="btn" style="min-height: 32px; padding: 4px 12px; font-size: 12px;">Touch Pad: Auto</button>
+      <button id="btn-camera-mode" class="btn" style="min-height: 32px; padding: 4px 12px; font-size: 12px;">Cam: Chase</button>
+      <button id="btn-Menu-open" class="btn" style="min-height: 32px; padding: 4px 12px; font-size: 12px;">Main Menu</button>
+    </div>
+  </div>
+
+  <!-- 1. CLICK TO START SPLASH GATE (Browser Web Audio Autoplay Unlock) -->
+  <section id="screen-splash" class="overlay-screen interactive">
+    <div class="modal-shell" style="max-width: 580px; text-align: center;">
+      <p style="font-size: 11px; letter-spacing: 0.14em; color: #f87171; font-weight: 600; margin-bottom: 8px;">ABANDONED SUBWAY LINE 13 · CURSED MIDNIGHT</p>
+      <div class="game-brand">
+        <img src="/icon.svg" alt="Ghost Rail logo" />
+        <div>
+          <div class="game-brand-name">GHOST RAIL</div>
+          <div class="game-brand-subtitle">ESCAPE THE DEAD STATION</div>
+        </div>
+      </div>
+      <h1 class="title-flicker" style="font-size: clamp(28px, 5vw, 46px); line-height: 1.1; margin-bottom: 14px;">
+        GHOST RAIL<br/>
+        <span style="font-size: 0.55em; letter-spacing: 0.12em; color: #cbd5e1;">ESCAPE THE DEAD STATION</span>
+      </h1>
+      <p style="font-size: 14px; color: var(--text-muted); line-height: 1.6; max-width: 46ch; margin: 0 auto 24px;">
+        Enter the pitch-dark haunted station. The 3D Grim Reaper and his Skeletal Wraith Hound hunt the cursed rails while haunting music &amp; Chernobyl echoes fill the tunnel.
+      </p>
+      <button id="btn-splash-start" class="btn btn-primary" style="width: 100%; max-width: 320px; font-size: 16px; min-height: 54px;">
+        CLICK TO START
+      </button>
+      <p style="font-size: 12px; color: #94a3b8; margin-top: 14px;">
+        © 2026 Abdur Rahman. All rights reserved.
+      </p>
+    </div>
+  </section>
+
+  <!-- 2. MAIN MENU & 3D CHARACTER SELECT SCREEN -->
+  <section id="screen-menu" class="overlay-screen interactive hidden">
+    <div class="modal-shell">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--border-subtle); padding-bottom: 16px;">
+        <div>
+          <div class="game-brand" style="margin-bottom: 10px;">
+            <img src="/icon.svg" alt="Ghost Rail logo" style="width: 42px; height: 42px; border-radius: 12px;" />
+            <div>
+              <div class="game-brand-name" style="font-size: 12px;">GHOST RAIL</div>
+              <div class="game-brand-subtitle">ESCAPE THE DEAD STATION</div>
+            </div>
+          </div>
+          <h1 class="title-flicker" style="font-size: clamp(22px, 3.5vw, 34px);">GHOST RAIL: ESCAPE THE DEAD STATION</h1>
+          <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+            Best Score: <strong id="menu-best-score" class="tabular-nums" style="color: #f8fafc;">0</strong>
+            <span style="margin: 0 8px;">·</span>
+            Total Souls Banked: <strong id="menu-bank-souls" class="tabular-nums" style="color: var(--accent-soul);">0</strong>
+          </p>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button id="btn-menu-sound" class="btn">SOUND: ON</button>
+          <button id="btn-menu-music" class="btn" style="border-color: rgba(239, 68, 68, 0.45); color: #fca5a5;">MUSIC: FULL HORROR</button>
+          <button id="btn-menu-play" class="btn btn-primary" style="min-width: 150px; font-size: 16px;">PLAY</button>
+        </div>
+      </div>
+
+      <!-- Choose 3D Ghost Section -->
+      <div style="margin-top: 18px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px;">
+          <h2 style="font-family: var(--font-display); font-size: 18px; color: #e2e8f0;">CHOOSE 3D GHOST SPIRIT</h2>
+          <span style="font-size: 12px; color: var(--text-muted);">Live 3D articulated spirits with glowing eyes, skeletal limbs &amp; ectoplasm mist</span>
+        </div>
+        <div id="char-grid" class="char-grid"></div>
+      </div>
+
+      <!-- Daily Missions Section -->
+      <div style="margin-top: 16px; border-top: 1px solid var(--border-subtle); padding-top: 16px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between;">
+          <h2 style="font-family: var(--font-display); font-size: 17px; color: #e2e8f0;">DAILY CURSED MISSIONS</h2>
+          <span style="font-size: 12px; color: var(--accent-soul);">Complete missions during runs for +150 Bonus Score</span>
+        </div>
+        <div id="mission-list" class="mission-list"></div>
+      </div>
+
+      <!-- Mobile & Platform Extra Settings (Android / iOS) -->
+      <div style="margin-top: 18px; border-top: 1px solid var(--border-subtle); padding-top: 16px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+          <span style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin-right: 4px;">MOBILE / DEVICE EXTRAS:</span>
+          <button id="btn-opt-touchbuttons" class="btn" style="min-height: 36px; padding: 6px 12px; font-size: 12px;">On-Screen Buttons: Auto</button>
+          <button id="btn-opt-tilt" class="btn" style="min-height: 36px; padding: 6px 12px; font-size: 12px;">Tilt-to-Steer (Gyro): ON</button>
+          <button id="btn-opt-haptics" class="btn" style="min-height: 36px; padding: 6px 12px; font-size: 12px;">Haptic Vibration: ON</button>
+          <button id="btn-opt-quality" class="btn" style="min-height: 36px; padding: 6px 12px; font-size: 12px;">Graphics: High</button>
+          <button id="btn-menu-download" class="btn" style="min-height: 36px; padding: 6px 12px; font-size: 12px;">Save HTML</button>
+        </div>
+        <div style="font-size: 12px; color: var(--text-muted);">
+          © 2026 Abdur Rahman. All rights reserved.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. PAUSE MODAL -->
+  <section id="screen-pause" class="overlay-screen interactive hidden">
+    <div class="modal-shell" style="max-width: 440px; text-align: center;">
+      <h2 class="title-flicker" style="font-size: 28px; margin-bottom: 8px;">SOUL IN LIMBO</h2>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 22px;">The Dead Station waits in silence...</p>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button id="btn-pause-resume" class="btn btn-primary" style="width: 100%;">RESUME ESCAPE</button>
+        <button id="btn-pause-restart" class="btn btn-soul" style="width: 100%;">RESTART RUN</button>
+        <button id="btn-pause-sound" class="btn" style="width: 100%;">SOUND: ON</button>
+        <button id="btn-pause-menu" class="btn" style="width: 100%;">CHOOSE GHOST / MENU</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. GAME OVER SCREEN -->
+  <section id="screen-gameover" class="overlay-screen interactive hidden">
+    <div class="modal-shell" style="max-width: 540px; text-align: center;">
+      <p style="font-size: 12px; letter-spacing: 0.16em; color: #ef4444; font-weight: 700; margin-bottom: 6px;">THE REAPER CLAIMED YOUR SPIRIT</p>
+      <h2 class="title-flicker" style="font-size: clamp(28px, 4.5vw, 42px); color: #f87171; margin-bottom: 16px;">
+        YOU JOINED THEM...
+      </h2>
+
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; text-align: left;">
+        <div class="hud-panel">
+          <div class="metric-label">Final Score</div>
+          <div id="go-score" class="metric-value tabular-nums" style="font-size: 26px; color: #f8fafc;">0</div>
+        </div>
+        <div class="hud-panel">
+          <div class="metric-label">Best Score</div>
+          <div id="go-best" class="metric-value tabular-nums" style="font-size: 26px; color: #f59e0b;">0</div>
+        </div>
+        <div class="hud-panel">
+          <div class="metric-label">Souls Harvested</div>
+          <div id="go-souls" class="metric-value tabular-nums" style="font-size: 20px; color: var(--accent-soul);">0</div>
+        </div>
+        <div class="hud-panel">
+          <div class="metric-label">Distance Reached</div>
+          <div id="go-distance" class="metric-value tabular-nums" style="font-size: 20px; color: #cbd5e1;">0m</div>
+        </div>
+      </div>
+
+      <p id="go-cause" style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">
+        Struck down in the Dead Station.
+      </p>
+
+      <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+        <button id="btn-go-again" class="btn btn-primary" style="flex: 1; min-width: 180px; font-size: 16px;">RUN AGAIN</button>
+        <button id="btn-go-menu" class="btn" style="flex: 1; min-width: 150px;">CHOOSE GHOST</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Self-Contained 3D Game Script -->
+  <script>
+  (async function initGhostRailGame() {
+    'use strict';
+
+    // Load Three.js directly from self-contained CDN ES Module (no importmap required)
+    const THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js';
+    const THREE = await import(/* @vite-ignore */ THREE_URL);
+
+    function createStudioEnvironmentScene() {
+      const envScene = new THREE.Scene();
+      const boxGeo = new THREE.BoxGeometry();
+      boxGeo.deleteAttribute('uv');
+      const roomMat = new THREE.MeshStandardMaterial({ side: THREE.BackSide, color: 0x09060d, metalness: 0.1, roughness: 0.85 });
+      const room = new THREE.Mesh(boxGeo, roomMat);
+      room.scale.set(30, 25, 30);
+      envScene.add(room);
+
+      // Overhead eerie moonlight strip
+      const lightTop = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+      lightTop.position.set(0, 11.5, 0);
+      lightTop.scale.set(14, 0.3, 18);
+      envScene.add(lightTop);
+
+      // Left blood-crimson horror rim strip
+      const lightLeft = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+      lightLeft.position.set(-13, 5, -6);
+      lightLeft.scale.set(0.3, 10, 14);
+      envScene.add(lightLeft);
+
+      // Right ectoplasm teal rim strip
+      const lightRight = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({ color: 0x14b8a6 }));
+      lightRight.position.set(13, 5, 6);
+      lightRight.scale.set(0.3, 10, 14);
+      envScene.add(lightRight);
+
+      // Front cursed lantern bounce
+      const lightFront = new THREE.Mesh(boxGeo, new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
+      lightFront.position.set(0, 3, -14);
+      lightFront.scale.set(10, 5, 0.3);
+      envScene.add(lightFront);
+
+      return envScene;
+    }
+
+    // =========================================================================
+    // 1. SOFTWARE WEBGL DETECTION & RENDERER SETUP
+    // =========================================================================
+    const isSoftwareGl = (() => {
+      try {
+        const probeCanvas = document.createElement('canvas');
+        const gl = probeCanvas.getContext('webgl2') || probeCanvas.getContext('webgl');
+        if (!gl) return true;
+        const ext = gl.getExtension('WEBGL_debug_renderer_info');
+        const param = ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER;
+        const gpu = String(gl.getParameter(param));
+        gl.getExtension('WEBGL_lose_context')?.loseContext();
+        return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
+      } catch (e) {
+        return false;
+      }
+    })();
+
+    const container = document.getElementById('webgl-container');
+    const renderer = new THREE.WebGLRenderer({
+      antialias: !isSoftwareGl,
+      powerPreference: 'high-performance'
+    });
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.18;
+    renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = !isSoftwareGl;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // Pre-allocate reusable math objects outside render loop (Zero GC)
+    const _vec3A = new THREE.Vector3();
+    const _vec3B = new THREE.Vector3();
+    const _colorA = new THREE.Color();
+    const _colorB = new THREE.Color();
+
+    // =========================================================================
+    // 2. GAME DEFINITIONS: CHARACTERS, ZONES, MISSIONS, STORAGE
+    // =========================================================================
+    const GHOST_CHARACTERS = [
+      {
+        id: 'bride',
+        name: 'Pale Bride',
+        title: 'Weeping Phantom of Platform 4',
+        desc: '3D veiled spirit with skeletal hands, cursed rose bouquet & hollow cyan eyes.',
+        glowHex: 0x2dd4bf,
+        eyeHex: 0x67e8f9,
+        robeHex: 0xcbd5e1,
+        perk: '+15% Soul Orb Aura'
+      },
+      {
+        id: 'rider',
+        name: 'Headless Rider',
+        title: 'Decapitated Conductor',
+        desc: '3D headless wraith carrying his blazing severed 3D skull in one hand.',
+        glowHex: 0xc084fc,
+        eyeHex: 0xf43f5e,
+        robeHex: 0x475569,
+        perk: 'Longer Jump Hangtime'
+      },
+      {
+        id: 'doctor',
+        name: 'Plague Doctor Spirit',
+        title: 'Apothecary of the Bone Tunnel',
+        desc: '3D curved bone beak mask, wide hat, plague staff & toxic emerald vials.',
+        glowHex: 0x34d399,
+        eyeHex: 0x4ade80,
+        robeHex: 0x334155,
+        perk: '+2s Power-Up Duration'
+      },
+      {
+        id: 'kid',
+        name: 'Skeleton Kid',
+        title: 'Lost Subway Surfer of 1984',
+        desc: '3D articulated skull, glowing ribcage, spine, crooked cap & swinging chains.',
+        glowHex: 0x38bdf8,
+        eyeHex: 0x7dd3fc,
+        robeHex: 0x64748b,
+        perk: 'Faster Lane Switching'
+      }
+    ];
+
+    const ZONES = [
+      {
+        id: 0,
+        name: 'Dead Station',
+        banner: 'ZONE I · DEAD STATION',
+        fogHex: 0x03050a,
+        ambientHex: 0x1e1b2e,
+        lightHex: 0x38bdf8,
+        rimHex: 0xef4444,
+        accentHex: 0xef4444
+      },
+      {
+        id: 1,
+        name: 'Bone Tunnel',
+        banner: 'ZONE II · BONE TUNNEL',
+        fogHex: 0x07020d,
+        ambientHex: 0x2e1045,
+        lightHex: 0xc084fc,
+        rimHex: 0xef4444,
+        accentHex: 0xc084fc
+      },
+      {
+        id: 2,
+        name: 'Cursed Graveyard Tracks',
+        banner: 'ZONE III · CURSED GRAVEYARD TRACKS',
+        fogHex: 0x020807,
+        ambientHex: 0x0b2e2b,
+        lightHex: 0x2dd4bf,
+        rimHex: 0x10b981,
+        accentHex: 0x10b981
+      },
+      {
+        id: 3,
+        name: 'Blood Moon Bridge',
+        banner: 'ZONE IV · BLOOD MOON BRIDGE',
+        fogHex: 0x0b0204,
+        ambientHex: 0x450a0a,
+        lightHex: 0xef4444,
+        rimHex: 0xf97316,
+        accentHex: 0xef4444
+      }
+    ];
+
+    const STORAGE_KEY = 'ghost_rail_save_v1';
+    function loadSaveData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (e) {}
+      return {
+        bestScore: 0,
+        totalSouls: 0,
+        selectedGhost: 'bride',
+        missions: [
+          { id: 'souls50', label: 'Harvest 50 Lost Souls', progress: 0, target: 50, completed: false },
+          { id: 'jumps20', label: 'Leap Over 20 Obstacles', progress: 0, target: 20, completed: false },
+          { id: 'rolls12', label: 'Roll Under 12 Chains/Webs', progress: 0, target: 12, completed: false },
+          { id: 'dist600', label: 'Reach 600m in One Run', progress: 0, target: 600, completed: false }
+        ]
+      };
+    }
+
+    function persistSaveData() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+      } catch (e) {}
+    }
+
+    const saveData = loadSaveData();
+
+    // =========================================================================
+    // 3. HORROR MUSIC & PROCEDURAL WEB AUDIO API SOUND DESIGN ENGINE
+    //    (Integrates both uploaded horror MP3 tracks + real-time procedural SFX)
+    // =========================================================================
+    const HAUNTING_MUSIC_URL = '/assets/aistudio/alex-morgan-haunting-music-601102_1f8ed2f8.mp3';
+    const CHERNOBYL_ATMOS_URL = '/assets/aistudio/universfield-haunting-chernobyl-atmosphere-30s-432881_48d88031.mp3';
+
+    class HorrorAudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+        this.musicMode = 'full'; // 'full' | 'theme' | 'chernobyl' | 'synth'
+        this.masterGain = null;
+        this.droneGain = null;
+        this.whisperGain = null;
+        this.windFilter = null;
+        this.initialized = false;
+        this.heartbeatTimer = 0;
+        this.stepTimer = 0;
+        this.ambientEventTimer = 6;
+
+        // Uploaded horror music tracks
+        this.bgMusicMain = new Audio(HAUNTING_MUSIC_URL);
+        this.bgMusicMain.loop = true;
+        this.bgMusicMain.preload = 'auto';
+        this.bgMusicMain.volume = 0.68;
+
+        this.bgMusicAtmos = new Audio(CHERNOBYL_ATMOS_URL);
+        this.bgMusicAtmos.loop = true;
+        this.bgMusicAtmos.preload = 'auto';
+        this.bgMusicAtmos.volume = 0.55;
+      }
+
+      init() {
+        if (this.initialized) {
+          if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+          this.syncMusicTracks(0.2);
+          return;
+        }
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        this.ctx = new AudioCtx();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = this.muted ? 0 : 0.85;
+        this.masterGain.connect(this.ctx.destination);
+
+        // 1. Deep Abyssal Sub Drone (38Hz + 57Hz + 76Hz detuned)
+        this.droneGain = this.ctx.createGain();
+        this.droneGain.gain.value = 0.14;
+        const droneFilter = this.ctx.createBiquadFilter();
+        droneFilter.type = 'lowpass';
+        droneFilter.frequency.value = 115;
+        this.droneGain.connect(droneFilter);
+        droneFilter.connect(this.masterGain);
+
+        [38, 57.2, 76.5].forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          osc.type = idx === 0 ? 'sawtooth' : 'triangle';
+          osc.frequency.value = freq;
+          osc.connect(this.droneGain);
+          osc.start();
+        });
+
+        // 2. Howling Tunnel Wind & Whispering Noise Buffer
+        const bufferSize = this.ctx.sampleRate * 3;
+        this.noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = this.noiseBuffer.getChannelData(0);
+        let lastOut = 0.0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          data[i] = (lastOut + 0.04 * white) / 1.04;
+          lastOut = data[i];
+          data[i] *= 2.5;
+        }
+
+        const windSource = this.ctx.createBufferSource();
+        windSource.buffer = this.noiseBuffer;
+        windSource.loop = true;
+        this.windFilter = this.ctx.createBiquadFilter();
+        this.windFilter.type = 'bandpass';
+        this.windFilter.frequency.value = 220;
+        this.windFilter.Q.value = 5.0;
+        const windGain = this.ctx.createGain();
+        windGain.gain.value = 0.13;
+        windSource.connect(this.windFilter);
+        this.windFilter.connect(windGain);
+        windGain.connect(this.masterGain);
+        windSource.start();
+
+        // 3. Chaser Whispering Formant Channel (scales with fearLevel)
+        const whisperSource = this.ctx.createBufferSource();
+        whisperSource.buffer = this.noiseBuffer;
+        whisperSource.loop = true;
+        const whisperFilter = this.ctx.createBiquadFilter();
+        whisperFilter.type = 'bandpass';
+        whisperFilter.frequency.value = 1350;
+        whisperFilter.Q.value = 6.5;
+        this.whisperGain = this.ctx.createGain();
+        this.whisperGain.gain.value = 0.0;
+        whisperSource.connect(whisperFilter);
+        whisperFilter.connect(this.whisperGain);
+        this.whisperGain.connect(this.masterGain);
+        whisperSource.start();
+
+        this.initialized = true;
+        this.syncMusicTracks(0.2);
+      }
+
+      syncMusicTracks(fearLevel = 0.2) {
+        if (this.muted) {
+          this.bgMusicMain.pause();
+          this.bgMusicAtmos.pause();
+          return;
+        }
+        const playMain = (this.musicMode === 'full' || this.musicMode === 'theme');
+        const playAtmos = (this.musicMode === 'full' || this.musicMode === 'chernobyl');
+
+        if (playMain) {
+          this.bgMusicMain.volume = Math.min(1.0, 0.65 + fearLevel * 0.25);
+          if (this.bgMusicMain.paused) {
+            this.bgMusicMain.play().catch(() => {});
+          }
+        } else {
+          this.bgMusicMain.pause();
+        }
+
+        if (playAtmos) {
+          this.bgMusicAtmos.volume = Math.min(1.0, 0.58 + fearLevel * 0.32);
+          if (this.bgMusicAtmos.paused) {
+            this.bgMusicAtmos.play().catch(() => {});
+          }
+        } else {
+          this.bgMusicAtmos.pause();
+        }
+      }
+
+      cycleMusicMode() {
+        const modes = ['full', 'theme', 'chernobyl', 'synth'];
+        this.musicMode = modes[(modes.indexOf(this.musicMode) + 1) % modes.length];
+        this.syncMusicTracks(0.25);
+        return this.musicMode;
+      }
+
+      setMuted(mute) {
+        this.muted = mute;
+        if (this.masterGain && this.ctx) {
+          this.masterGain.gain.setTargetAtTime(this.muted ? 0 : 0.85, this.ctx.currentTime, 0.05);
+        }
+        this.syncMusicTracks(0.2);
+      }
+
+      update(dt, time, isPlaying, fearLevel, speedRatio) {
+        if (!this.initialized || this.muted || !this.ctx) return;
+        const now = this.ctx.currentTime;
+
+        // Dynamically modulate uploaded horror tracks with Reaper proximity
+        if (this.bgMusicMain && !this.bgMusicMain.paused) {
+          this.bgMusicMain.volume = THREE.MathUtils.clamp((isPlaying ? 0.68 : 0.48) + fearLevel * 0.24, 0, 1);
+        }
+        if (this.bgMusicAtmos && !this.bgMusicAtmos.paused) {
+          this.bgMusicAtmos.volume = THREE.MathUtils.clamp((isPlaying ? 0.58 : 0.68) + fearLevel * 0.32, 0, 1);
+        }
+
+        // Modulate wind howl
+        if (this.windFilter) {
+          this.windFilter.frequency.setTargetAtTime(195 + Math.sin(time * 0.7) * 95 + speedRatio * 110, now, 0.1);
+        }
+
+        // Modulate whisper intensity as Reaper gets closer
+        if (this.whisperGain) {
+          const targetWhisper = isPlaying ? Math.pow(fearLevel, 1.4) * 0.32 * (0.6 + 0.4 * Math.sin(time * 7.5)) : 0.02;
+          this.whisperGain.gain.setTargetAtTime(targetWhisper, now, 0.08);
+        }
+
+        if (!isPlaying) return;
+
+        // Rhythmic ghostly floaty whoosh footsteps
+        this.stepTimer -= dt * (1 + speedRatio * 0.7);
+        if (this.stepTimer <= 0) {
+          this.stepTimer = 0.36;
+          this.playGhostStep();
+        }
+
+        // Heartbeat sound that speeds up when danger is near
+        const hbInterval = THREE.MathUtils.lerp(1.0, 0.34, fearLevel);
+        this.heartbeatTimer -= dt;
+        if (this.heartbeatTimer <= 0 && fearLevel > 0.16) {
+          this.heartbeatTimer = hbInterval;
+          this.playHeartbeat(fearLevel);
+        }
+
+        // Random distant horror sounds (child laughter, crow, train horn, creaking metal)
+        this.ambientEventTimer -= dt;
+        if (this.ambientEventTimer <= 0) {
+          this.ambientEventTimer = 6.5 + Math.random() * 8;
+          const r = Math.random();
+          if (r < 0.25) this.playDistantLaughter();
+          else if (r < 0.5) this.playCrowCall();
+          else if (r < 0.75) this.playGhostTrainHorn();
+          else this.playCreakingMetal();
+        }
+      }
+
+      playGhostStep() {
+        if (!this.initialized || this.muted) return;
+        const now = this.ctx.currentTime;
+        const src = this.ctx.createBufferSource();
+        src.buffer = this.noiseBuffer;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(320, now);
+        filter.frequency.exponentialRampToValueAtTime(160, now + 0.14);
+        filter.Q.value = 3.0;
+        const g = this.ctx.createGain();
+        g.gain.setValueAtTime(0.04, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        src.connect(filter);
+        filter.connect(g);
+        g.connect(this.masterGain);
+        src.start(now);
+        src.stop(now + 0.16);
+      }
+
+      playHeartbeat(fear) {
+        if (!this.initialized || this.muted) return;
+        const now = this.ctx.currentTime;
+        const vol = THREE.MathUtils.clamp(fear * 0.48, 0.08, 0.5);
+        // Lub-dub double thump
+        [0, 0.14].forEach((offset, idx) => {
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(idx === 0 ? 72 : 58, now + offset);
+          osc.frequency.exponentialRampToValueAtTime(28, now + offset + 0.12);
+          g.gain.setValueAtTime(vol * (idx === 0 ? 1 : 0.75), now + offset);
+          g.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.13);
+          osc.connect(g);
+          g.connect(this.masterGain);
+          osc.start(now + offset);
+          osc.stop(now + offset + 0.14);
+        });
+      }
+
+      playSoulCollect() {
+        if (!this.initialized || this.muted) return;
+        const now = this.ctx.currentTime;
+        // Soft eerie harmonic chime
+        [880, 1318.5, 1760].forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + i * 0.03);
+          osc.frequency.exponentialRampToValueAtTime(freq * 1.015, now + 0.38);
+          g.gain.setValueAtTime(0.09 / (i + 1), now + i * 0.03);
+          g.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+          osc.connect(g);
+          g.connect(this.masterGain);
+          osc.start(now + i * 0.03);
+          osc.stop(now + 0.44);
+        });
+      }
+
+      playJump() {
+        if (!this.initialized || this.muted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(190, now);
+        osc.frequency.exponentialRampToValueAtTime(540, now + 0.26);
+        g.gain.setValueAtTime(0.14, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+        osc.connect(g);
+        g.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.3);
+      }
+
+      playRoll() {
+        if (!this.initialized || this.muted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(340, now);
+        osc.frequency.exponentialRampToValueAtTime(85, now + 0.25);
+        g.gain.setValueAtTime(0.16, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.27);
+        osc.connect(g);
+        g.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.28);
+      }
+
+      playLaneSwitch() {
+        if (!this.initialized || this.muted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(280, now);
+        osc.frequency.exponentialRampToValueAtTime(420, now + 0.09);
+        g.gain.setValueAtTime(0.07, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        osc.connect(g);
+        g.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.11);
+      }
+
+      playPowerup() {
+        if (!this.initialized || this.muted) return;
+        const now = this.ctx.currentTime;
+        [440, 523.25, 659.25, 880].forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.055);
+          g.gain.setValueAtTime(0.12, now + idx * 0.055);
+          g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.055 + 0.45);
+          osc.connect(g);
+          g.connect(this.masterGain);
+          osc.start(now + idx * 0.055);
+          osc.stop(now + idx * 0.055 + 0.48);
+        });
+      }
+
+      playCrash() {
+        if (!this.initialized || this.muted) return;
+        const now = this.ctx.currentTime;
+        // Distorted scream-like horror sting
+        [310, 466, 740, 1120].forEach((f) => {
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(f, now);
+          osc.frequency.exponentialRampToValueAtTime(f * 0.48, now + 0.55);
+          g.gain.setValueAtTime(0.11, now);
+          g.gain.exponentialRampToValueAtTime(0.001, now + 0.58);
+          osc.connect(g);
+          g.connect(this.masterGain);
+          osc.start(now);
+          osc.stop(now + 0.6);
+        });
+      }
+
+      playJumpScare() {
+        if (!this.initialized || this.muted) return;
+        const now = this.ctx.currentTime;
+        // Sudden loud dissonant horror cluster sting
+        [587.3, 622.2, 830.6, 1244.5, 92.5].forEach((f, idx) => {
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = idx === 4 ? 'sawtooth' : 'square';
+          osc.frequency.setValueAtTime(f, now);
+          osc.frequency.linearRampToValueAtTime(f * 0.92, now + 0.65);
+          g.gain.setValueAtTime(idx === 4 ? 0.22 : 0.075, now);
+          g.gain.exponentialRampToValueAtTime(0.001, now + 0.68);
+          osc.connect(g);
+          g.connect(this.masterGain);
+          osc.start(now);
+          osc.stop(now + 0.7);
+        });
+      }
+
+      playDistantLaughter() {
+        if (!this.initialized || this.muted) return;
+        const now = this.ctx.currentTime;
+        // Eerie child-like staccato harmonic bursts echoing in the tunnel
+        [780, 740, 690, 640, 580].forEach((pitch, i) => {
+          const t = now + i * 0.14;
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(pitch, t);
+          osc.frequency.exponentialRampToValueAtTime(pitch * 0.84, t + 0.11);
+          g.gain.setValueAtTime(0.035 * (1 - i * 0.14), t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+          osc.connect(g);
+          g.connect(this.masterGain);
+          osc.start(t);
+          osc.stop(t + 0.13);
+        });
+      }
+
+      playCrowCall() {
+        if (!this.initialized || this.muted) return;
+        const now = this.ctx.currentTime;
+        [0, 0.28].forEach((delay) => {
+          const t = now + delay;
+          const osc = this.ctx.createOscillator();
+          const mod = this.ctx.createOscillator();
+          const modGain = this.ctx.createGain();
+          const g = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(520, t);
+          osc.frequency.exponentialRampToValueAtTime(340, t + 0.2);
+          mod.frequency.value = 68;
+          modGain.gain.value = 140;
+          mod.connect(modGain);
+          modGain.connect(osc.frequency);
+          g.gain.setValueAtTime(0.04, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.21);
+          osc.connect(g);
+          g.connect(this.masterGain);
+          osc.start(t);
+          mod.start(t);
+          osc.stop(t + 0.22);
+          mod.stop(t + 0.22);
+        });
+      }
+
+      playGhostTrainHorn() {
+        if (!this.initialized || this.muted) return;
+        const now = this.ctx.currentTime;
+        [146.8, 185.0, 220.0].forEach((freq) => {
+          const osc = this.ctx.createOscillator();
+          const filter = this.ctx.createBiquadFilter();
+          const g = this.ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(freq * 1.03, now);
+          osc.frequency.linearRampToValueAtTime(freq * 0.96, now + 1.4);
+          filter.type = 'lowpass';
+          filter.frequency.value = 460;
+          g.gain.setValueAtTime(0.001, now);
+          g.gain.linearRampToValueAtTime(0.06, now + 0.2);
+          g.gain.exponentialRampToValueAtTime(0.001, now + 1.45);
+          osc.connect(filter);
+          filter.connect(g);
+          g.connect(this.masterGain);
+          osc.start(now);
+          osc.stop(now + 1.5);
+        });
+      }
+
+      playCreakingMetal() {
+        if (!this.initialized || this.muted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1180, now);
+        osc.frequency.linearRampToValueAtTime(1420, now + 0.35);
+        osc.frequency.linearRampToValueAtTime(980, now + 0.8);
+        g.gain.setValueAtTime(0.02, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+        osc.connect(g);
+        g.connect(this.masterGain);
+        osc.start(now);
+        osc.stop(now + 0.88);
+      }
+    }
+
+    const audio = new HorrorAudioEngine();
+
+    // =========================================================================
+    // 4. HAPTIC FEEDBACK & MOBILE EXTRAS (ANDROID / iOS)
+    // =========================================================================
+    const deviceConfig = {
+      isTouchDevice: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0),
+      touchButtonsMode: 'auto', // 'auto' | 'on' | 'off'
+      tiltEnabled: true,
+      hapticsEnabled: true,
+      qualityMode: 'high', // 'high' | 'saver'
+      cameraMode: 'chase', // 'chase' | 'close' | 'cinematic'
+      tiltGamma: 0,
+      tiltBaselineGamma: null,
+      tiltCooldown: 0
+    };
+
+    function triggerHaptic(pattern) {
+      if (!deviceConfig.hapticsEnabled) return;
+      try {
+        if (navigator.vibrate) navigator.vibrate(pattern);
+      } catch (e) {}
+    }
+
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          await navigator.wakeLock.request('screen');
+        }
+      } catch (e) {}
+    }
+
+    // =========================================================================
+    // 5. PROCEDURAL CANVAS TEXTURES & PBR MATERIALS
+    // =========================================================================
+    const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+    function makeCanvasTexture(width, height, drawFn) {
+      const c = document.createElement('canvas');
+      c.width = width;
+      c.height = height;
+      const ctx = c.getContext('2d');
+      drawFn(ctx, width, height);
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = maxAniso;
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
+    // Cracked Subway Station Wall with Blood-Red Rune Graffiti & Peeling Posters
+    const stationWallTex = makeCanvasTexture(512, 512, (ctx, w, h) => {
+      ctx.fillStyle = '#263449';
+      ctx.fillRect(0, 0, w, h);
+
+      // Subway ceramic tile grid (crisp visible mortar lines)
+      ctx.strokeStyle = '#151e2e';
+      ctx.lineWidth = 3;
+      for (let y = 0; y < h; y += 32) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        const offset = (y / 32) % 2 === 0 ? 0 : 32;
+        for (let x = offset; x < w; x += 64) {
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 32); ctx.stroke();
+        }
+      }
+
+      // Subtle weathering stains
+      for (let i = 0; i < 30; i++) {
+        ctx.fillStyle = `rgba(10, 16, 28, ${0.12 + Math.random() * 0.22})`;
+        ctx.beginPath();
+        ctx.arc(Math.random() * w, Math.random() * h, 14 + Math.random() * 42, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Cracks
+      ctx.strokeStyle = '#090e17';
+      ctx.lineWidth = 2.5;
+      for (let c = 0; c < 6; c++) {
+        let cx = Math.random() * w;
+        let cy = Math.random() * h;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        for (let s = 0; s < 8; s++) {
+          cx += (Math.random() - 0.5) * 45;
+          cy += 18 + Math.random() * 25;
+          ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+      }
+
+      // Peeling tattered poster
+      ctx.save();
+      ctx.translate(95, 160);
+      ctx.rotate(-0.06);
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillRect(0, 0, 110, 145);
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(8, 10, 94, 80);
+      ctx.fillStyle = '#dc2626';
+      ctx.font = 'bold 16px serif';
+      ctx.fillText('LINE 13', 18, 115);
+      ctx.fillText('CLOSED', 20, 134);
+      // Tear corner
+      ctx.fillStyle = '#263449';
+      ctx.beginPath();
+      ctx.moveTo(75, 0); ctx.lineTo(110, 0); ctx.lineTo(110, 48); ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // Glowing Blood-Red Rune Graffiti
+
+      ctx.strokeStyle = 'rgba(248, 113, 113, 0.95)';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(360, 230, 52, 0, Math.PI * 2);
+      ctx.moveTo(360, 165); ctx.lineTo(360, 310);
+      ctx.moveTo(315, 210); ctx.lineTo(405, 255);
+      ctx.moveTo(405, 210); ctx.lineTo(315, 255);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(248, 113, 113, 0.95)';
+      ctx.font = 'bold 28px serif';
+      ctx.fillText('NO EXIT', 295, 360);
+    });
+
+    // Rusted Train / Iron Texture (high visibility contrast)
+    const rustedIronTex = makeCanvasTexture(256, 256, (ctx, w, h) => {
+      ctx.fillStyle = '#5c2d20';
+      ctx.fillRect(0, 0, w, h);
+      for (let i = 0; i < 80; i++) {
+        ctx.fillStyle = i % 2 === 0 ? 'rgba(180, 83, 9, 0.38)' : 'rgba(51, 65, 85, 0.38)';
+        ctx.fillRect(Math.random() * w, Math.random() * h, 8 + Math.random() * 40, 4 + Math.random() * 25);
+      }
+      ctx.strokeStyle = 'rgba(226, 232, 240, 0.35)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(4, 4, w - 8, h - 8);
+    });
+
+    // Track Ballast & Lane Guide Texture (clear lane contrast)
+    const trackBedTex = makeCanvasTexture(256, 256, (ctx, w, h) => {
+      ctx.fillStyle = '#1b2434';
+      ctx.fillRect(0, 0, w, h);
+      // Gravel speckles
+      for (let i = 0; i < 480; i++) {
+        const shade = 38 + Math.floor(Math.random() * 38);
+        ctx.fillStyle = `rgb(${shade}, ${shade + 6}, ${shade + 14})`;
+        ctx.fillRect(Math.random() * w, Math.random() * h, 3, 3);
+      }
+    });
+
+    // Translucent Cobweb Texture
+    const cobwebTex = makeCanvasTexture(256, 256, (ctx, w, h) => {
+      ctx.clearRect(0, 0, w, h);
+      ctx.strokeStyle = 'rgba(248, 250, 252, 0.92)';
+      ctx.lineWidth = 2.5;
+      const cx = w / 2, cy = 10;
+      for (let a = 0; a <= Math.PI; a += Math.PI / 10) {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(a) * w, cy + Math.sin(a) * h * 1.1);
+        ctx.stroke();
+      }
+      for (let r = 24; r < h; r += 26) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI);
+        ctx.stroke();
+      }
+    });
+
+    // =========================================================================
+    // 6. FULL HAUNTED HORROR SCENE, BLOOD MOON, ASH PARTICLES & HORROR LIGHTING
+    // =========================================================================
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(ZONES[0].fogHex);
+    // Dense haunted atmospheric fog that swallows the distant tunnel into darkness
+    scene.fog = new THREE.FogExp2(ZONES[0].fogHex, 0.0165);
+
+    // Dark Haunted Environment Reflection
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmremGenerator.fromScene(createStudioEnvironmentScene(), 0.04).texture;
+    pmremGenerator.dispose();
+
+    const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 160);
+    camera.position.set(0, 4.4, 8.2);
+    camera.lookAt(0, 1.8, -14);
+
+    // Layer 1: Low Moody Horror Ambient Fill (keeps surroundings dark & eerie)
+    const ambientLight = new THREE.AmbientLight(0x1e1b2e, 0.45);
+    scene.add(ambientLight);
+
+    // Layer 2: Haunted Hemisphere Fill (eerie moonlight sky vs blood-shadow ground)
+    const hemiLight = new THREE.HemisphereLight(0x38bdf8, 0x1a0508, 0.68);
+    scene.add(hemiLight);
+
+    // Layer 3: Key Moonlight / Flickering Station Directional Light
+    const dirLight = new THREE.DirectionalLight(0x93c5fd, 1.35);
+    dirLight.position.set(9, 22, 14);
+    dirLight.castShadow = !isSoftwareGl;
+    dirLight.shadow.mapSize.width = 1024;
+    dirLight.shadow.mapSize.height = 1024;
+    dirLight.shadow.camera.near = 1;
+    dirLight.shadow.camera.far = 75;
+    const dBounds = 15;
+    dirLight.shadow.camera.left = -dBounds;
+    dirLight.shadow.camera.right = dBounds;
+    dirLight.shadow.camera.top = dBounds;
+    dirLight.shadow.camera.bottom = -dBounds;
+    dirLight.shadow.bias = -0.0005;
+    dirLight.shadow.normalBias = 0.02;
+    scene.add(dirLight);
+
+    // Layer 4: Crimson Horror Backlight / Rim Light from down-track (-Z)
+    const rimDirLight = new THREE.DirectionalLight(0xef4444, 1.85);
+    rimDirLight.position.set(-6, 9, -35);
+    scene.add(rimDirLight);
+
+    // Layer 5: Dynamic Player Spirit Aura + Haunted Flashlight Beam + Reaper Crimson Glow
+    const playerAuraLight = new THREE.PointLight(0x2dd4bf, 5.2, 22, 1.35);
+    scene.add(playerAuraLight);
+
+    const reaperPointLight = new THREE.PointLight(0xef4444, 5.5, 18, 1.4);
+    scene.add(reaperPointLight);
+
+    const trackSpotLight = new THREE.SpotLight(0xe0f2fe, 15.5, 95, Math.PI / 3.1, 0.58, 1.15);
+    trackSpotLight.position.set(0, 5.2, 4);
+    trackSpotLight.target.position.set(0, 0.5, -36);
+    scene.add(trackSpotLight);
+    scene.add(trackSpotLight.target);
+
+    const lanternSpotLight = new THREE.SpotLight(0xfde047, 0, 88, Math.PI / 2.8, 0.4, 1.1);
+    scene.add(lanternSpotLight);
+    scene.add(lanternSpotLight.target);
+
+    // Giant Cursed Blood Moon in the sky (Always visible looming through broken station roof & open zones)
+    const bloodMoonGroup = new THREE.Group();
+    const moonMat = new THREE.MeshBasicMaterial({ color: 0xdc2626, fog: false });
+    const moonMesh = new THREE.Mesh(new THREE.SphereGeometry(15, 24, 24), moonMat);
+    const moonHaloMat = new THREE.MeshBasicMaterial({
+      color: 0x991b1b,
+      transparent: true,
+      opacity: 0.36,
+      fog: false
+    });
+    const moonHalo = new THREE.Mesh(new THREE.SphereGeometry(23, 24, 24), moonHaloMat);
+    bloodMoonGroup.add(moonMesh, moonHalo);
+    bloodMoonGroup.position.set(0, 27, -115);
+    bloodMoonGroup.visible = true;
+    scene.add(bloodMoonGroup);
+
+    // 3D Haunted Ash, Ember & Ectoplasm Spore Particle Cloud
+    const PARTICLE_COUNT = 340;
+    const particleGeo = new THREE.BufferGeometry();
+    const particlePositions = new Float32Array(PARTICLE_COUNT * 3);
+    const particleColors = new Float32Array(PARTICLE_COUNT * 3);
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      particlePositions[i * 3] = (Math.random() - 0.5) * 18;
+      particlePositions[i * 3 + 1] = Math.random() * 8.5;
+      particlePositions[i * 3 + 2] = -Math.random() * 110 + 10;
+      const isCrimson = Math.random() < 0.45;
+      particleColors[i * 3] = isCrimson ? 0.95 : 0.18;
+      particleColors[i * 3 + 1] = isCrimson ? 0.22 : 0.85;
+      particleColors[i * 3 + 2] = isCrimson ? 0.25 : 0.78;
+    }
+    particleGeo.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+    particleGeo.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+    const particleMat = new THREE.PointsMaterial({
+      size: 0.16,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.75,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const hauntedParticles = new THREE.Points(particleGeo, particleMat);
+    scene.add(hauntedParticles);
+
+    // Shared Haunted PBR Material Library
+    const mats = {
+      railSteel: new THREE.MeshStandardMaterial({
+        color: 0x94a3b8,
+        emissive: 0x0f172a,
+        emissiveIntensity: 0.2,
+        metalness: 0.9,
+        roughness: 0.22
+      }),
+      sleeperWood: new THREE.MeshStandardMaterial({ color: 0x2a1b15, metalness: 0.1, roughness: 0.85 }),
+      stationWall: new THREE.MeshStandardMaterial({ map: stationWallTex, roughness: 0.8, metalness: 0.15 }),
+      platformStone: new THREE.MeshStandardMaterial({ color: 0x161e2e, roughness: 0.78, metalness: 0.18 }),
+      platformEdge: new THREE.MeshBasicMaterial({ color: 0x991b1b }),
+      pillarConcrete: new THREE.MeshStandardMaterial({ color: 0x1a2232, roughness: 0.82, metalness: 0.2 }),
+      rustedTrain: new THREE.MeshStandardMaterial({
+        map: rustedIronTex,
+        color: 0x7c2d12,
+        emissive: 0x2a0a04,
+        emissiveIntensity: 0.22,
+        metalness: 0.62,
+        roughness: 0.45
+      }),
+      darkIron: new THREE.MeshStandardMaterial({
+        color: 0x334155,
+        emissive: 0x090d16,
+        emissiveIntensity: 0.2,
+        metalness: 0.82,
+        roughness: 0.35
+      }),
+      boneWhite: new THREE.MeshStandardMaterial({
+        color: 0xe2e8f0,
+        emissive: 0x1e293b,
+        emissiveIntensity: 0.18,
+        roughness: 0.5,
+        metalness: 0.08
+      }),
+      tombstoneGray: new THREE.MeshStandardMaterial({
+        color: 0x64748b,
+        emissive: 0x0f172a,
+        emissiveIntensity: 0.18,
+        roughness: 0.72,
+        metalness: 0.14
+      }),
+      coffinWood: new THREE.MeshStandardMaterial({
+        color: 0x451a03,
+        emissive: 0x2a050a,
+        emissiveIntensity: 0.24,
+        roughness: 0.58,
+        metalness: 0.2
+      }),
+      glowWindow: new THREE.MeshBasicMaterial({ color: 0xfde047 }),
+      glowCrimson: new THREE.MeshBasicMaterial({ color: 0xef4444 }),
+      glowSoul: new THREE.MeshBasicMaterial({ color: 0x2dd4bf }),
+      glowViolet: new THREE.MeshBasicMaterial({ color: 0xc084fc }),
+      godRayMat: new THREE.MeshBasicMaterial({
+        color: 0xef4444,
+        transparent: true,
+        opacity: 0.08,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      }),
+      cobwebMat: new THREE.MeshBasicMaterial({
+        map: cobwebTex,
+        transparent: true,
+        opacity: 0.92,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      }),
+      shadowFigureMat: new THREE.MeshStandardMaterial({
+        color: 0x05070c,
+        emissive: 0x7f1d1d,
+        emissiveIntensity: 0.25,
+        transparent: true,
+        opacity: 0.94
+      })
+    };
+
+    // =========================================================================
+    // 7. ARTICULATED MULTI-PART 3D CHARACTERS (ALL GHOSTS, REAPER, HOUND & NPCS!)
+    // =========================================================================
+    const LANES = [-2.6, 0, 2.6];
+
+    function buildPlayableGhostMesh(ghostDef) {
+      const root = new THREE.Group();
+
+      const spiritMat = new THREE.MeshPhysicalMaterial({
+        color: ghostDef.robeHex,
+        emissive: ghostDef.glowHex,
+        emissiveIntensity: 0.38,
+        roughness: 0.24,
+        metalness: 0.12,
+        transparent: true,
+        opacity: 0.86,
+        side: THREE.DoubleSide
+      });
+
+      const accentGlowMat = new THREE.MeshBasicMaterial({ color: ghostDef.glowHex });
+      const eyeMat = new THREE.MeshBasicMaterial({ color: ghostDef.eyeHex });
+      const darkTrimMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.45, metalness: 0.65 });
+
+      // 1. Primary Flowing 3D Spectral Cloak / Shroud + Inner Ribbed Skirt
+      const shroudGeo = new THREE.ConeGeometry(0.62, 1.5, 18, 5, true);
+      const shroud = new THREE.Mesh(shroudGeo, spiritMat);
+      shroud.position.y = 0.95;
+      shroud.castShadow = !isSoftwareGl;
+      root.add(shroud);
+
+      const innerCore = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.38, 1.25, 12), darkTrimMat);
+      innerCore.position.y = 1.02;
+      root.add(innerCore);
+
+      // 2. 3D Sculpted Upper Torso, Shoulder Pauldrons & Spine Vertebrae
+      const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.44, 0.62, 14), spiritMat);
+      torso.position.y = 1.48;
+      root.add(torso);
+
+      [-0.36, 0.36].forEach((sx) => {
+        const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 10), spiritMat);
+        pauldron.position.set(sx, 1.65, 0);
+        root.add(pauldron);
+      });
+
+      for (let v = 0; v < 5; v++) {
+        const vertebra = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.07, 0.12), mats.boneWhite);
+        vertebra.position.set(0, 1.22 + v * 0.12, 0.24);
+        root.add(vertebra);
+      }
+
+      // 3. Articulated 3D Head Group (Cranium + Jawbone + Hollow Eye Sockets + Glowing Irises)
+      const headGroup = new THREE.Group();
+      headGroup.position.y = 2.02;
+      root.add(headGroup);
+
+      if (ghostDef.id !== 'rider') {
+        const cranium = new THREE.Mesh(new THREE.SphereGeometry(0.29, 18, 18), mats.boneWhite);
+        headGroup.add(cranium);
+
+        const jaw = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.14, 0.18, 10), mats.boneWhite);
+        jaw.position.set(0, -0.2, -0.04);
+        headGroup.add(jaw);
+
+        const hoodMesh = new THREE.Mesh(new THREE.SphereGeometry(0.33, 14, 14, 0, Math.PI * 2, 0, Math.PI * 0.68), spiritMat);
+        hoodMesh.rotation.x = -0.25;
+        headGroup.add(hoodMesh);
+
+        const socketMat = new THREE.MeshBasicMaterial({ color: 0x020409 });
+        [-0.105, 0.105].forEach((ex) => {
+          const socket = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 10), socketMat);
+          socket.position.set(ex, 0.02, -0.24);
+          headGroup.add(socket);
+
+          const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), eyeMat);
+          pupil.position.set(ex, 0.02, -0.28);
+          headGroup.add(pupil);
+        });
+      }
+
+      // 4. Articulated 3D Upper Arms, Forearms & Skeletal Hands
+      function createArticulatedArm(sideSign) {
+        const armGroup = new THREE.Group();
+        armGroup.position.set(sideSign * 0.42, 1.62, -0.05);
+        const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.06, 0.42, 8), spiritMat);
+        upperArm.position.y = -0.18;
+        upperArm.rotation.z = sideSign * 0.22;
+        armGroup.add(upperArm);
+
+        const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.38, 8), mats.boneWhite);
+        forearm.position.set(sideSign * 0.08, -0.45, -0.14);
+        forearm.rotation.x = 0.65;
+        armGroup.add(forearm);
+
+        const hand = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), accentGlowMat);
+        hand.position.set(sideSign * 0.1, -0.58, -0.28);
+        armGroup.add(hand);
+        return armGroup;
+      }
+
+      const leftArm = createArticulatedArm(-1);
+      const rightArm = createArticulatedArm(1);
+      root.add(leftArm, rightArm);
+
+      // 5. Character-Specific 3D Props & Geometry
+      if (ghostDef.id === 'bride') {
+        const tiara = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.03, 8, 18), accentGlowMat);
+        tiara.rotation.x = Math.PI / 2;
+        tiara.position.y = 0.24;
+        headGroup.add(tiara);
+
+        const veil = new THREE.Mesh(new THREE.ConeGeometry(0.52, 1.45, 14, 2, true), spiritMat);
+        veil.position.set(0, -0.42, 0.15);
+        veil.rotation.x = 0.24;
+        headGroup.add(veil);
+
+        const bouquet = new THREE.Group();
+        bouquet.position.set(0.18, -0.56, -0.32);
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.02, 0.28, 6), darkTrimMat);
+        const roses = new THREE.Mesh(new THREE.DodecahedronGeometry(0.15), mats.glowCrimson);
+        roses.position.y = 0.14;
+        bouquet.add(stem, roses);
+        rightArm.add(bouquet);
+      } else if (ghostDef.id === 'rider') {
+        const neckCollar = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.045, 8, 16), darkTrimMat);
+        neckCollar.rotation.x = Math.PI / 2;
+        neckCollar.position.y = -0.18;
+        headGroup.add(neckCollar);
+
+        const neckFlame = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.45, 10), accentGlowMat);
+        neckFlame.position.y = 0.05;
+        headGroup.add(neckFlame);
+
+        const heldHead = new THREE.Group();
+        heldHead.position.set(0.16, -0.55, -0.32);
+        const heldSkull = new THREE.Mesh(new THREE.SphereGeometry(0.24, 14, 14), mats.boneWhite);
+        const heldJaw = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.2), mats.boneWhite);
+        heldJaw.position.set(0, -0.18, -0.02);
+        heldHead.add(heldSkull, heldJaw);
+        [-0.085, 0.085].forEach((ex) => {
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), eyeMat);
+          eye.position.set(ex, 0.02, -0.21);
+          heldHead.add(eye);
+        });
+        rightArm.add(heldHead);
+        root.userData.heldHead = heldHead;
+      } else if (ghostDef.id === 'doctor') {
+        const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.04, 18), darkTrimMat);
+        brim.position.y = 0.22;
+        headGroup.add(brim);
+
+        const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 0.32, 16), darkTrimMat);
+        crown.position.y = 0.38;
+        headGroup.add(crown);
+
+        const beak = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.54, 12), mats.boneWhite);
+        beak.rotation.x = -Math.PI / 2 - 0.22;
+        beak.position.set(0, -0.02, -0.45);
+        headGroup.add(beak);
+
+        // 3D Plague Censer Staff in right hand
+        const staff = new THREE.Group();
+        staff.position.set(0.12, -0.45, -0.25);
+        const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.45, 8), mats.darkIron);
+        const orb = new THREE.Mesh(new THREE.OctahedronGeometry(0.14), accentGlowMat);
+        orb.position.y = 0.75;
+        staff.add(rod, orb);
+        rightArm.add(staff);
+      } else if (ghostDef.id === 'kid') {
+        const capCrown = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2), darkTrimMat);
+        capCrown.position.y = 0.06;
+        headGroup.add(capCrown);
+
+        const visor = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.035, 0.26), darkTrimMat);
+        visor.position.set(0, 0.12, -0.27);
+        visor.rotation.z = 0.15;
+        headGroup.add(visor);
+
+        for (let r = 0; r < 4; r++) {
+          const rib = new THREE.Mesh(new THREE.TorusGeometry(0.32 - r * 0.03, 0.03, 6, 14), accentGlowMat);
+          rib.rotation.x = Math.PI / 2;
+          rib.position.y = 1.52 - r * 0.12;
+          root.add(rib);
+        }
+      }
+
+      // 6. Multi-Segment Sinusoidal 3D Ectoplasm Mist Tail & Floating Skeletal Feet
+      const tailSegments = [];
+      for (let t = 0; t < 6; t++) {
+        const seg = new THREE.Mesh(
+          new THREE.SphereGeometry(0.34 * (1 - t * 0.14), 10, 10),
+          spiritMat
+        );
+        seg.position.set(0, 0.42 - t * 0.04, 0.22 + t * 0.26);
+        root.add(seg);
+        tailSegments.push(seg);
+      }
+
+      // 7. Spectral Wings Power-up Attachment
+      const wingsGroup = new THREE.Group();
+      wingsGroup.position.set(0, 1.58, 0.24);
+      wingsGroup.visible = false;
+      const wingMat = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.88,
+        side: THREE.DoubleSide
+      });
+      const leftWing = new THREE.Group();
+      const rightWing = new THREE.Group();
+      for (let f = 0; f < 5; f++) {
+        const featherL = new THREE.Mesh(new THREE.BoxGeometry(0.92 - f * 0.14, 0.12, 0.04), wingMat);
+        featherL.position.set(-0.48 + f * 0.06, 0.22 - f * 0.13, 0);
+        featherL.rotation.z = -0.22 + f * 0.11;
+        leftWing.add(featherL);
+
+        const featherR = new THREE.Mesh(new THREE.BoxGeometry(0.92 - f * 0.14, 0.12, 0.04), wingMat);
+        featherR.position.set(0.48 - f * 0.06, 0.22 - f * 0.13, 0);
+        featherR.rotation.z = 0.22 - f * 0.11;
+        rightWing.add(featherR);
+      }
+      wingsGroup.add(leftWing, rightWing);
+      root.add(wingsGroup);
+
+      // 8. Ghost Board (Hovering 3D Cursed Coffin Shield Attachment)
+      const boardGroup = new THREE.Group();
+      boardGroup.position.set(0, 0.14, 0);
+      boardGroup.visible = false;
+      const boardHull = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.12, 1.82), mats.coffinWood);
+      const boardRim = new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.05, 1.88), mats.glowSoul);
+      boardGroup.add(boardHull, boardRim);
+      root.add(boardGroup);
+
+      // 9. Orbiting 3D Eldritch Lantern Attachment
+      const lanternVisual = new THREE.Group();
+      lanternVisual.visible = false;
+      const lCage = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.12, 0.34, 6), mats.darkIron);
+      const lCore = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 8), new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
+      lanternVisual.add(lCage, lCore);
+      root.add(lanternVisual);
+
+      // 10. Contact Shadow Grounding Disc
+      const shadowDisc = new THREE.Mesh(
+        new THREE.CircleGeometry(0.68, 16),
+        new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.6, depthWrite: false })
+      );
+      shadowDisc.rotation.x = -Math.PI / 2;
+      shadowDisc.position.y = 0.03;
+      root.add(shadowDisc);
+
+      root.userData = {
+        ...root.userData,
+        headGroup,
+        leftArm,
+        rightArm,
+        tailSegments,
+        wingsGroup,
+        leftWing,
+        rightWing,
+        boardGroup,
+        lanternVisual,
+        shadowDisc
+      };
+
+      return root;
+    }
+
+    // Build The 3D Chaser Duo: Tall Articulated Grim Reaper + 3D Skeletal Wraith Hound
+    function buildChaserGroup() {
+      const group = new THREE.Group();
+
+      // A. Tall Articulated 3D Grim Reaper
+      const reaper = new THREE.Group();
+      const cloakMat = new THREE.MeshStandardMaterial({
+        color: 0x05070d,
+        emissive: 0x450a0a,
+        emissiveIntensity: 0.42,
+        roughness: 0.85,
+        transparent: true,
+        opacity: 0.95,
+        side: THREE.DoubleSide
+      });
+      const reaperCloak = new THREE.Mesh(new THREE.ConeGeometry(1.02, 3.2, 16, 3, true), cloakMat);
+      reaperCloak.position.y = 1.68;
+      reaper.add(reaperCloak);
+
+      // 3D Ribcage & Spine on Reaper
+      for (let r = 0; r < 4; r++) {
+        const rib = new THREE.Mesh(new THREE.TorusGeometry(0.42 - r * 0.03, 0.035, 6, 12), mats.boneWhite);
+        rib.rotation.x = Math.PI / 2;
+        rib.position.set(0, 2.45 - r * 0.18, -0.18);
+        reaper.add(rib);
+      }
+
+      const reaperHood = new THREE.Mesh(new THREE.SphereGeometry(0.46, 14, 14), cloakMat);
+      reaperHood.position.y = 3.2;
+      reaper.add(reaperHood);
+
+      const reaperSkull = new THREE.Mesh(new THREE.SphereGeometry(0.31, 14, 14), mats.boneWhite);
+      reaperSkull.position.set(0, 3.18, -0.1);
+      reaper.add(reaperSkull);
+
+      // Glowing Crimson Reaper Eyes
+      [-0.12, 0.12].forEach((ex) => {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), mats.glowCrimson);
+        eye.position.set(ex, 3.2, -0.38);
+        reaper.add(eye);
+      });
+
+      // Giant 3D Soul-Reaping Scythe + Skeletal Arms
+      const scytheGroup = new THREE.Group();
+      scytheGroup.position.set(0.78, 2.35, -0.35);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.04, 3.6, 10), mats.sleeperWood);
+      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.26, 1.65, 6), mats.railSteel);
+      blade.position.set(-0.62, 1.62, 0);
+      blade.rotation.z = Math.PI / 2 + 0.28;
+      const bladeGlow = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.04, 0.06), mats.glowCrimson);
+      bladeGlow.position.set(-0.55, 1.52, 0);
+      bladeGlow.rotation.z = 0.28;
+      scytheGroup.add(pole, blade, bladeGlow);
+      reaper.add(scytheGroup);
+      group.add(reaper);
+
+      // B. 3D Articulated Skeletal Wraith Hound
+      const hound = new THREE.Group();
+      hound.position.set(-1.18, 0, 0.35);
+      const houndBody = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 1.25, 10), mats.boneWhite);
+      houndBody.rotation.x = Math.PI / 2;
+      houndBody.position.y = 0.68;
+      hound.add(houndBody);
+
+      for (let r = 0; r < 5; r++) {
+        const rib = new THREE.Mesh(new THREE.TorusGeometry(0.28 - r * 0.015, 0.032, 6, 12), mats.boneWhite);
+        rib.position.set(0, 0.68, -0.4 + r * 0.2);
+        hound.add(rib);
+      }
+
+      const houndSkull = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.62, 10), mats.boneWhite);
+      houndSkull.rotation.x = -Math.PI / 2;
+      houndSkull.position.set(0, 0.92, -0.76);
+      hound.add(houndSkull);
+
+      const houndJaw = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.08, 0.42), mats.boneWhite);
+      houndJaw.position.set(0, 0.78, -0.72);
+      houndJaw.rotation.x = 0.22;
+      hound.add(houndJaw);
+
+      [-0.085, 0.085].forEach((ex) => {
+        const hEye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), mats.glowCrimson);
+        hEye.position.set(ex, 0.96, -0.86);
+        hound.add(hEye);
+      });
+
+      const houndLegs = [];
+      [[-0.2, -0.44], [0.2, -0.44], [-0.2, 0.44], [0.2, 0.44]].forEach(([lx, lz]) => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.03, 0.66, 8), mats.boneWhite);
+        leg.position.set(lx, 0.34, lz);
+        hound.add(leg);
+        houndLegs.push(leg);
+      });
+
+      group.add(hound);
+      group.scale.setScalar(0.72);
+      group.userData = { reaper, scytheGroup, hound, houndLegs };
+      return group;
+    }
+
+    // Build 3D Platform Ghost Passenger (3D skull, tattered shroud, outstretched 3D arms & rotating head)
+    function createPlatformGhostPassenger() {
+      const g = new THREE.Group();
+      const pMat = new THREE.MeshStandardMaterial({
+        color: 0x64748b,
+        emissive: 0x0f766e,
+        emissiveIntensity: 0.35,
+        transparent: true,
+        opacity: 0.68,
+        side: THREE.DoubleSide
+      });
+      const body = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.62, 12, 2, true), pMat);
+      body.position.y = 0.85;
+      g.add(body);
+
+      [-0.32, 0.32].forEach((ax) => {
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.035, 0.55, 8), mats.boneWhite);
+        arm.position.set(ax, 1.32, 0.18);
+        arm.rotation.x = Math.PI / 2.6;
+        g.add(arm);
+      });
+
+      const head = new THREE.Group();
+      head.position.y = 1.78;
+      const skull = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), mats.boneWhite);
+      const jaw = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.18), mats.boneWhite);
+      jaw.position.set(0, -0.16, 0.02);
+      head.add(skull, jaw);
+      [-0.08, 0.08].forEach((ex) => {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), mats.glowCrimson);
+        eye.position.set(ex, 0.02, 0.21);
+        head.add(eye);
+      });
+      g.add(head);
+      g.userData.head = head;
+      return g;
+    }
+
+    // =========================================================================
+    // 8. OBJECT POOLING: HAUNTED TRACK SEGMENTS, HANGING CAGES & WATCHING EYES
+    // =========================================================================
+    const SEGMENT_LENGTH = 20;
+    const NUM_SEGMENTS = 9;
+    const trackSegments = [];
+    const platformGhosts = [];
+
+    function createTrackSegment(index) {
+      const seg = new THREE.Group();
+      seg.position.z = -index * SEGMENT_LENGTH;
+
+      // Track bed floor
+      const floorGeo = new THREE.PlaneGeometry(11, SEGMENT_LENGTH);
+      const floorMat = new THREE.MeshStandardMaterial({ map: trackBedTex, roughness: 0.94, metalness: 0.08 });
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = !isSoftwareGl;
+      seg.add(floor);
+
+      // 3 Lanes of Rusted Steel Rails & Crossties
+      LANES.forEach((laneX) => {
+        [-0.55, 0.55].forEach((railOffset) => {
+          const rail = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, SEGMENT_LENGTH), mats.railSteel);
+          rail.position.set(laneX + railOffset, 0.08, 0);
+          seg.add(rail);
+        });
+      });
+
+      // Wooden sleepers
+      for (let z = -SEGMENT_LENGTH / 2 + 1; z < SEGMENT_LENGTH / 2; z += 2.0) {
+        const tie = new THREE.Mesh(new THREE.BoxGeometry(8.8, 0.06, 0.32), mats.sleeperWood);
+        tie.position.set(0, 0.03, z);
+        seg.add(tie);
+      }
+
+      // Side Station Platforms + Blood-Red Hazard Edge Strips
+      [-6.8, 6.8].forEach((px) => {
+        const plat = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.1, SEGMENT_LENGTH), mats.platformStone);
+        plat.position.set(px, 0.55, 0);
+        seg.add(plat);
+
+        const edgeX = px < 0 ? -5.24 : 5.24;
+        const edgeStrip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, SEGMENT_LENGTH), mats.platformEdge);
+        edgeStrip.position.set(edgeX, 1.12, 0);
+        seg.add(edgeStrip);
+      });
+
+      // Broken Crooked Overhead Fluorescent Fixture + Volumetric Horror Beam
+      const lightFixtureGroup = new THREE.Group();
+      const housing = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.16, 0.65), mats.darkIron);
+      housing.position.set(0, 7.85, 0);
+      housing.rotation.z = (index % 2 === 0 ? 0.08 : -0.11);
+      const neonTube = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.09, 0.38), mats.glowWindow);
+      neonTube.position.set(0, 7.72, 0);
+      neonTube.rotation.z = housing.rotation.z;
+      const godRayCone = new THREE.Mesh(new THREE.ConeGeometry(4.6, 7.6, 18, 1, true), mats.godRayMat);
+      godRayCone.position.set(0, 3.95, 0);
+      lightFixtureGroup.add(housing, neonTube, godRayCone);
+
+      // Side Wall Cursed Crimson Lanterns & Floating Candles
+      [-5.15, 5.15].forEach((sx) => {
+        const sconce = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.48, 0.2), mats.glowCrimson);
+        sconce.position.set(sx, 4.4, 0);
+        lightFixtureGroup.add(sconce);
+
+        // Floating haunted candle / wisp
+        const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.28, 6), mats.boneWhite);
+        candle.position.set(sx * 0.88, 2.4 + (index % 3) * 0.3, -4);
+        const flame = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 6), mats.glowWindow);
+        flame.position.y = 0.2;
+        candle.add(flame);
+        lightFixtureGroup.add(candle);
+      });
+      seg.add(lightFixtureGroup);
+
+      // Zone-Specific Architecture Containers
+      const stationArch = new THREE.Group();
+      const boneArch = new THREE.Group();
+      const graveyardArch = new THREE.Group();
+      const bridgeArch = new THREE.Group();
+
+      // Zone 0: Dead Station Cracked Walls, Pillars, 3D Hanging Skeleton Cage & Watching Eyes
+      [-8.3, 8.3].forEach((wx) => {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 8.5, SEGMENT_LENGTH), mats.stationWall);
+        wall.position.set(wx, 4.25, 0);
+        stationArch.add(wall);
+      });
+      [-5.4, 5.4].forEach((colX) => {
+        const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.48, 7.5, 0.48), mats.pillarConcrete);
+        pillar.position.set(colX, 3.75, 0);
+        stationArch.add(pillar);
+      });
+
+      // 3D Hanging Iron Cage with Skeleton Skull inside
+      const cageGroup = new THREE.Group();
+      cageGroup.position.set(index % 2 === 0 ? -4.2 : 4.2, 5.8, -5);
+      const cageChain = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 2.2, 6), mats.darkIron);
+      cageChain.position.y = 1.4;
+      const cageBars = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.38, 1.1, 8, 1, true), mats.darkIron);
+      const cagedSkull = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 10), mats.boneWhite);
+      const cagedEyeL = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), mats.glowCrimson);
+      cagedEyeL.position.set(-0.07, 0.02, 0.19);
+      const cagedEyeR = new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), mats.glowCrimson);
+      cagedEyeR.position.set(0.07, 0.02, 0.19);
+      cagedSkull.add(cagedEyeL, cagedEyeR);
+      cageGroup.add(cageChain, cageBars, cagedSkull);
+      stationArch.add(cageGroup);
+
+      // 3D Ghost passenger waiting on platform
+      const pGhost = createPlatformGhostPassenger();
+      const sideSign = index % 2 === 0 ? -1 : 1;
+      pGhost.position.set(sideSign * 5.8, 1.1, (Math.random() - 0.5) * 8);
+      stationArch.add(pGhost);
+      platformGhosts.push(pGhost);
+
+      // 3D Shadow Stalker Figure + Glowing Red Eyes in the Dark Alcoves
+      const shadowFig = new THREE.Group();
+      const sBody = new THREE.Mesh(new THREE.ConeGeometry(0.42, 2.3, 10), mats.shadowFigureMat);
+      sBody.position.y = 1.15;
+      const sHead = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10), mats.shadowFigureMat);
+      sHead.position.y = 2.25;
+      shadowFig.add(sBody, sHead);
+      [-0.08, 0.08].forEach((ex) => {
+        const sEye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), mats.glowCrimson);
+        sEye.position.set(ex, 2.26, 0.22);
+        shadowFig.add(sEye);
+      });
+      shadowFig.position.set(-sideSign * 6.4, 1.1, 4);
+      stationArch.add(shadowFig);
+
+      // Zone 1: Bone Tunnel Catacomb Rib Arches + Glowing Soul Braziers
+      for (let z = -6; z <= 6; z += 6) {
+        const ribArch = new THREE.Mesh(new THREE.TorusGeometry(7.2, 0.38, 8, 18, Math.PI), mats.boneWhite);
+        ribArch.position.set(0, 1.0, z);
+        boneArch.add(ribArch);
+      }
+      [-4.9, 4.9].forEach((bx) => {
+        const brazier = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 8), mats.glowViolet);
+        brazier.position.set(bx, 2.6, 0);
+        boneArch.add(brazier);
+      });
+
+      // Zone 2: Cursed Graveyard Gnarled Trees, Iron Fences & Glowing Lantern Posts
+      [-6.5, 6.5].forEach((gx) => {
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.42, 5.2, 7), mats.sleeperWood);
+        trunk.position.set(gx, 3.2, -3);
+        trunk.rotation.z = gx < 0 ? -0.22 : 0.22;
+        graveyardArch.add(trunk);
+
+        const fence = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.2, SEGMENT_LENGTH), mats.darkIron);
+        fence.position.set(gx * 0.88, 2.1, 0);
+        graveyardArch.add(fence);
+
+        const lampOrb = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 8), mats.glowSoul);
+        lampOrb.position.set(gx * 0.88, 3.35, 0);
+        graveyardArch.add(lampOrb);
+      });
+
+      // Zone 3: Blood Moon Bridge Steel Truss Girders & Crimson Beacons
+      [-6.0, 6.0].forEach((bx) => {
+        const girder = new THREE.Mesh(new THREE.BoxGeometry(0.55, 6.8, 0.55), mats.rustedTrain);
+        girder.position.set(bx, 3.4, 0);
+        bridgeArch.add(girder);
+
+        const beaconOrb = new THREE.Mesh(new THREE.SphereGeometry(0.25, 8, 8), mats.glowCrimson);
+        beaconOrb.position.set(bx, 6.85, 0);
+        bridgeArch.add(beaconOrb);
+      });
+      const crossBeam = new THREE.Mesh(new THREE.BoxGeometry(12.6, 0.45, 0.45), mats.rustedTrain);
+      crossBeam.position.set(0, 6.6, 0);
+      bridgeArch.add(crossBeam);
+
+      seg.add(stationArch, boneArch, graveyardArch, bridgeArch);
+      seg.userData = { stationArch, boneArch, graveyardArch, bridgeArch, godRayCone };
+      scene.add(seg);
+      return seg;
+    }
+
+    for (let i = 0; i < NUM_SEGMENTS; i++) {
+      trackSegments.push(createTrackSegment(i));
+    }
+
+    function updateSegmentZoneVisuals(zoneIdx) {
+      const rayColors = [0xef4444, 0xc084fc, 0x2dd4bf, 0xef4444];
+      mats.godRayMat.color.setHex(rayColors[zoneIdx] || 0xef4444);
+      trackSegments.forEach((seg) => {
+        seg.userData.stationArch.visible = (zoneIdx === 0);
+        seg.userData.boneArch.visible = (zoneIdx === 1);
+        seg.userData.graveyardArch.visible = (zoneIdx === 2);
+        seg.userData.bridgeArch.visible = (zoneIdx === 3);
+      });
+      bloodMoonGroup.visible = true;
+    }
+
+    // =========================================================================
+    // 9. COMPOSITE OBSTACLE FACTORY (TRAINS, COFFINS, TOMBSTONES, CHAINS, GATES, WEBS)
+    // =========================================================================
+    function createObstacleMesh(type) {
+      const group = new THREE.Group();
+
+      if (type === 'TRAIN') {
+        // Rusted Ghost Train with Glowing Windows, Cowcatcher & Headlights
+        const body = new THREE.Mesh(new THREE.BoxGeometry(2.15, 3.1, 9.5), mats.rustedTrain);
+        body.position.y = 1.65;
+        body.castShadow = !isSoftwareGl;
+        group.add(body);
+
+        const roof = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.05, 9.4, 12, 1, false, 0, Math.PI), mats.darkIron);
+        roof.rotation.z = Math.PI / 2;
+        roof.rotation.y = Math.PI / 2;
+        roof.position.y = 3.15;
+        group.add(roof);
+
+        // Glowing windows along sides & front + bright rim trim
+        const frontWin = new THREE.Mesh(new THREE.PlaneGeometry(1.65, 0.72), mats.glowWindow);
+        frontWin.position.set(0, 2.35, 4.76);
+        group.add(frontWin);
+
+        const frontBumper = new THREE.Mesh(new THREE.BoxGeometry(2.22, 0.18, 0.12), mats.platformEdge);
+        frontBumper.position.set(0, 0.35, 4.78);
+        group.add(frontBumper);
+
+        [-0.65, 0.65].forEach((hx) => {
+          const lightMesh = new THREE.Mesh(new THREE.CircleGeometry(0.26, 12), mats.glowCrimson);
+          lightMesh.position.set(hx, 1.1, 4.77);
+          group.add(lightMesh);
+        });
+
+        for (let wz = -3.2; wz <= 3.2; wz += 1.6) {
+          [-1.09, 1.09].forEach((wx) => {
+            const win = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.65), mats.glowWindow);
+            win.position.set(wx, 2.2, wz);
+            win.rotation.y = wx > 0 ? Math.PI / 2 : -Math.PI / 2;
+            group.add(win);
+          });
+        }
+      } else if (type === 'COFFIN') {
+        // Floating Gothic Coffin with Glowing Cross & Outline Rim (Jump Over)
+        const coffin = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.35, 1.85, 6), mats.coffinWood);
+        coffin.rotation.z = Math.PI / 2;
+        coffin.position.y = 0.82;
+        group.add(coffin);
+
+        const crossV = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.08, 0.16), mats.glowCrimson);
+        crossV.position.y = 1.19;
+        const crossH = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.62), mats.glowCrimson);
+        crossH.position.y = 1.19;
+        group.add(crossV, crossH);
+      } else if (type === 'TOMBSTONE') {
+        // Broken Cracked Tombstone with Glowing Epitaph & Iron Spikes (Jump Over)
+        const base = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.32, 0.55), mats.tombstoneGray);
+        base.position.y = 0.16;
+        const slab = new THREE.Mesh(new THREE.BoxGeometry(1.25, 1.15, 0.36), mats.tombstoneGray);
+        slab.position.y = 0.72;
+        slab.rotation.z = 0.08;
+        const arch = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.36, 12), mats.tombstoneGray);
+        arch.rotation.x = Math.PI / 2;
+        arch.position.set(-0.04, 1.25, 0);
+        const runeCross = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.08, 0.38), mats.glowSoul);
+        runeCross.position.set(-0.02, 0.95, 0);
+        group.add(base, slab, arch, runeCross);
+      } else if (type === 'GATE') {
+        // Fallen Wrought-Iron Gate with Glowing Spear Tips & Top Bar (Jump Over)
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.15, 0.16), mats.darkIron);
+        frame.position.y = 0.58;
+        const topHighlight = new THREE.Mesh(new THREE.BoxGeometry(2.14, 0.08, 0.18), mats.platformEdge);
+        topHighlight.position.y = 1.16;
+        group.add(frame, topHighlight);
+        for (let sx = -0.85; sx <= 0.85; sx += 0.34) {
+          const spear = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.34, 6), mats.glowWindow);
+          spear.position.set(sx, 1.32, 0);
+          group.add(spear);
+        }
+      } else if (type === 'CHAINS') {
+        // Hanging Chains Overhead Barrier (ROLL / SLIDE UNDER! Bottom at y = 1.1)
+        const topBeam = new THREE.Mesh(new THREE.BoxGeometry(2.35, 0.24, 0.24), mats.rustedTrain);
+        topBeam.position.y = 3.15;
+        const lowWarnBar = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.06, 0.08), mats.glowCrimson);
+        lowWarnBar.position.y = 1.15;
+        group.add(topBeam, lowWarnBar);
+
+        [-1.12, 1.12].forEach((px) => {
+          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.2, 8), mats.darkIron);
+          post.position.set(px, 1.6, 0);
+          group.add(post);
+        });
+
+        for (let cx = -0.85; cx <= 0.85; cx += 0.28) {
+          const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.9, 6), mats.railSteel);
+          chain.position.set(cx, 2.1, 0);
+          group.add(chain);
+        }
+      } else if (type === 'COBWEB') {
+        // Low Ceiling Cobweb Barrier with Glowing Spider (ROLL / SLIDE UNDER!)
+        const topBeam = new THREE.Mesh(new THREE.BoxGeometry(2.35, 0.2, 0.2), mats.sleeperWood);
+        topBeam.position.y = 3.15;
+        group.add(topBeam);
+
+        const webPlane = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 1.95), mats.cobwebMat);
+        webPlane.position.y = 2.12;
+        group.add(webPlane);
+
+        // Giant Spider with glowing red eyes
+        const spider = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), mats.darkIron);
+        spider.position.set(0, 1.55, 0.06);
+        const sEye = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), mats.glowCrimson);
+        sEye.position.set(0, 1.52, 0.23);
+        group.add(spider, sEye);
+      }
+
+      // Beacon ring for Lantern powerup reveal
+      const beacon = new THREE.Mesh(
+        new THREE.RingGeometry(0.9, 1.15, 16),
+        new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide })
+      );
+      beacon.rotation.x = -Math.PI / 2;
+      beacon.position.y = 0.05;
+      beacon.visible = false;
+      group.add(beacon);
+      group.userData.beacon = beacon;
+
+      scene.add(group);
+      return group;
+    }
+
+    // =========================================================================
+    // 10. GAME STATE, PLAYER KINEMATICS & SPAWNER
+    // =========================================================================
+    let playerMesh = null;
+    const chaserGroup = buildChaserGroup();
+    scene.add(chaserGroup);
+
+    const activeObstacles = [];
+    const activeSouls = [];
+    const activePowerups = [];
+
+    const state = {
+      screen: 'splash', // 'splash' | 'menu' | 'playing' | 'paused' | 'gameover'
+      score: 0,
+      souls: 0,
+      distance: 0,
+      speed: 19,
+      baseSpeed: 19,
+      maxSpeed: 39,
+      laneIndex: 1, // 0 = left, 1 = center, 2 = right
+      currentX: 0,
+      currentY: 0,
+      velY: 0,
+      isJumping: false,
+      isRolling: false,
+      rollTimer: 0,
+      invincibleTimer: 0,
+      fearLevel: 0.12, // 0..1 (1 = Grim Reaper strikes!)
+      chaserHitStage: 0, // 0 = normal, 1 = wounded/chaser right behind you!
+      chaserRecoverTimer: 0,
+      currentZone: 0,
+      spawnTimer: 0,
+      scareEventTimer: 11,
+      lightOutTimer: 0,
+      cameraShake: 0,
+      powerups: {
+        lantern: 0,
+        magnet: 0,
+        wings: 0,
+        board: false
+      }
+    };
+
+    function rebuildPlayerCharacter() {
+      if (playerMesh) scene.remove(playerMesh);
+      const def = GHOST_CHARACTERS.find((c) => c.id === saveData.selectedGhost) || GHOST_CHARACTERS[0];
+      playerMesh = buildPlayableGhostMesh(def);
+      playerAuraLight.color.setHex(def.glowHex);
+      scene.add(playerMesh);
+    }
+
+    rebuildPlayerCharacter();
+    updateSegmentZoneVisuals(0);
+
+    function clearSpawnedEntities() {
+      activeObstacles.forEach((o) => scene.remove(o.mesh));
+      activeObstacles.length = 0;
+      activeSouls.forEach((s) => scene.remove(s.mesh));
+      activeSouls.length = 0;
+      activePowerups.forEach((p) => scene.remove(p.mesh));
+      activePowerups.length = 0;
+    }
+
+    // Spawn Soul Orb Line or Jump Arc
+    function spawnSoulPattern(laneIdx, startZ, isArc) {
+      const count = 5;
+      for (let i = 0; i < count; i++) {
+        const orbGroup = new THREE.Group();
+        const core = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), mats.glowSoul);
+        const halo = new THREE.Mesh(
+          new THREE.RingGeometry(0.28, 0.38, 12),
+          new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.7 })
+        );
+        orbGroup.add(core, halo);
+        const yHeight = isArc ? 0.95 + Math.sin((i / (count - 1)) * Math.PI) * 1.95 : 1.05;
+        orbGroup.position.set(LANES[laneIdx], yHeight, startZ - i * 2.5);
+        scene.add(orbGroup);
+        activeSouls.push({ mesh: orbGroup, collected: false });
+      }
+    }
+
+    function spawnPowerupItem(laneIdx, zPos) {
+      const types = ['lantern', 'magnet', 'wings', 'board'];
+      const pType = types[Math.floor(Math.random() * types.length)];
+      const colorMap = {
+        lantern: 0xf59e0b,
+        magnet: 0xa855f7,
+        wings: 0x38bdf8,
+        board: 0x10b981
+      };
+      const g = new THREE.Group();
+      const crystal = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.42, 0),
+        new THREE.MeshBasicMaterial({ color: colorMap[pType] })
+      );
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(0.55, 0.04, 8, 18),
+        new THREE.MeshBasicMaterial({ color: 0xffffff })
+      );
+      g.add(crystal, ring);
+      g.position.set(LANES[laneIdx], 1.25, zPos);
+      scene.add(g);
+      activePowerups.push({ mesh: g, type: pType });
+    }
+
+    function spawnObstacleRow(zPos) {
+      const obstacleTypes = ['TRAIN', 'COFFIN', 'TOMBSTONE', 'GATE', 'CHAINS', 'COBWEB'];
+      const blockedLanes = new Set();
+      const numObstacles = Math.random() < 0.42 ? 2 : 1;
+
+      for (let i = 0; i < numObstacles; i++) {
+        let lane = Math.floor(Math.random() * 3);
+        while (blockedLanes.has(lane)) lane = (lane + 1) % 3;
+        blockedLanes.add(lane);
+
+        const type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
+        const mesh = createObstacleMesh(type);
+        mesh.position.set(LANES[lane], 0, zPos);
+
+        const isMovingTrain = (type === 'TRAIN' && Math.random() < 0.35);
+        activeObstacles.push({
+          mesh,
+          type,
+          lane,
+          passed: false,
+          movingSpeed: isMovingTrain ? 11 : 0
+        });
+
+        // Spawn jump-arc souls over jumpable hurdles
+        if ((type === 'COFFIN' || type === 'TOMBSTONE' || type === 'GATE') && Math.random() < 0.65) {
+          spawnSoulPattern(lane, zPos + 4.5, true);
+        }
+      }
+
+      // Spawn souls or a powerup in a free lane
+      const freeLanes = [0, 1, 2].filter((l) => !blockedLanes.has(l));
+      if (freeLanes.length > 0) {
+        const chosenLane = freeLanes[Math.floor(Math.random() * freeLanes.length)];
+        if (Math.random() < 0.22) {
+          spawnPowerupItem(chosenLane, zPos - 2);
+        } else {
+          spawnSoulPattern(chosenLane, zPos, false);
+        }
+      }
+    }
+
+    // =========================================================================
+    // 11. PLAYER ACTIONS & MISSION PROGRESS
+    // =========================================================================
+    function showToast(msg) {
+      const el = document.getElementById('toast-alert');
+      el.textContent = msg;
+      el.classList.add('visible');
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => el.classList.remove('visible'), 2200);
+    }
+
+    function showZoneBanner(text) {
+      const el = document.getElementById('zone-banner');
+      el.textContent = text;
+      el.classList.add('visible');
+      clearTimeout(showZoneBanner._timer);
+      showZoneBanner._timer = setTimeout(() => el.classList.remove('visible'), 3000);
+    }
+
+    function advanceMission(missionId, amount) {
+      const m = saveData.missions.find((item) => item.id === missionId);
+      if (!m || m.completed) return;
+      if (missionId === 'dist600') {
+        m.progress = Math.max(m.progress, Math.floor(amount));
+      } else {
+        m.progress = Math.min(m.target, m.progress + amount);
+      }
+      if (m.progress >= m.target && !m.completed) {
+        m.completed = true;
+        state.score += 150;
+        showToast(`MISSION COMPLETE: ${m.label} (+150)`);
+      }
+      persistSaveData();
+    }
+
+    function moveLane(dir) {
+      if (state.screen !== 'playing') return;
+      const next = THREE.MathUtils.clamp(state.laneIndex + dir, 0, 2);
+      if (next !== state.laneIndex) {
+        state.laneIndex = next;
+        audio.playLaneSwitch();
+        triggerHaptic(12);
+      }
+    }
+
+    function triggerJump() {
+      if (state.screen !== 'playing' || state.powerups.wings > 0) return;
+      if (!state.isJumping) {
+        state.isJumping = true;
+        state.isRolling = false;
+        state.velY = saveData.selectedGhost === 'rider' ? 12.2 : 11.4;
+        audio.playJump();
+        triggerHaptic(18);
+      }
+    }
+
+    function triggerRoll() {
+      if (state.screen !== 'playing' || state.powerups.wings > 0) return;
+      state.isRolling = true;
+      state.rollTimer = 0.68;
+      if (state.isJumping) {
+        state.velY = -16; // Fast spectral dive to ground
+      }
+      audio.playRoll();
+      triggerHaptic(18);
+    }
+
+    function activateGhostBoard() {
+      if (state.screen !== 'playing') return;
+      if (!state.powerups.board) {
+        state.powerups.board = true;
+        audio.playPowerup();
+        showToast('GHOST BOARD SHIELD ACTIVE (SURVIVES 1 HIT)');
+        triggerHaptic([20, 40, 20]);
+      }
+    }
+
+    // Random Scary Event Director
+    function triggerRandomScareEvent() {
+      const roll = Math.random();
+      if (roll < 0.33) {
+        // Event 1: Lights suddenly go out in the tunnel!
+        state.lightOutTimer = 2.8;
+        showToast('LIGHTS OUT IN THE TUNNEL...');
+        audio.playCreakingMetal();
+      } else if (roll < 0.66) {
+        // Event 2: Pale Face Apparition flashes with horror sting!
+        const flash = document.getElementById('scare-flash-layer');
+        flash.style.opacity = '0.88';
+        setTimeout(() => { flash.style.opacity = '0'; }, 240);
+        state.cameraShake = 0.45;
+        audio.playJumpScare();
+        triggerHaptic([45, 30, 65]);
+      } else {
+        // Event 3: Phantom Express Train horn & tremor
+        state.cameraShake = 0.38;
+        audio.playGhostTrainHorn();
+        showToast('PHANTOM EXPRESS APPROACHING!');
+      }
+    }
+
+    // =========================================================================
+    // 12. START, PAUSE & GAME OVER FLOW
+    // =========================================================================
+    function collapseBottomDock() {
+      const dock = document.getElementById('bottom-dock-wrapper');
+      const toggle = document.getElementById('btn-dock-toggle');
+      dock.classList.add('collapsed');
+      toggle.textContent = '▴ Show Controls (H)';
+    }
+
+    function startNewRun() {
+      audio.init();
+      requestWakeLock();
+      clearSpawnedEntities();
+      rebuildPlayerCharacter();
+
+      state.screen = 'playing';
+      state.score = 0;
+      state.souls = 0;
+      state.distance = 0;
+      state.speed = state.baseSpeed;
+      state.laneIndex = 1;
+      state.currentX = 0;
+      state.currentY = 0;
+      state.velY = 0;
+      state.isJumping = false;
+      state.isRolling = false;
+      state.rollTimer = 0;
+      state.invincibleTimer = 0;
+      state.fearLevel = 0.12;
+      state.chaserHitStage = 0;
+      state.chaserRecoverTimer = 0;
+      state.currentZone = 0;
+      state.spawnTimer = 0.6;
+      state.scareEventTimer = 9;
+      state.lightOutTimer = 0;
+      state.cameraShake = 0;
+      state.powerups = { lantern: 0, magnet: 0, wings: 0, board: false };
+      deviceConfig.tiltBaselineGamma = null;
+      deviceConfig.tiltGamma = 0;
+      deviceConfig.tiltCooldown = 0.25;
+
+      updateSegmentZoneVisuals(0);
+      scene.background.setHex(ZONES[0].fogHex);
+      scene.fog.color.setHex(ZONES[0].fogHex);
+
+      // Pre-populate initial obstacles ahead
+      for (let z = -38; z >= -110; z -= 24) {
+        spawnObstacleRow(z);
+      }
+
+      syncScreens();
+      showZoneBanner(ZONES[0].banner);
+      window.setTimeout(collapseBottomDock, 3000);
+    }
+
+    function triggerGameOver(reasonText) {
+      state.screen = 'gameover';
+      audio.playCrash();
+      triggerHaptic([80, 40, 120]);
+
+      const finalScore = Math.floor(state.score);
+      if (finalScore > saveData.bestScore) {
+        saveData.bestScore = finalScore;
+      }
+      saveData.totalSouls += state.souls;
+      persistSaveData();
+
+      document.getElementById('go-score').textContent = finalScore.toLocaleString();
+      document.getElementById('go-best').textContent = saveData.bestScore.toLocaleString();
+      document.getElementById('go-souls').textContent = state.souls.toLocaleString();
+      document.getElementById('go-distance').textContent = `${Math.floor(state.distance)}m`;
+      document.getElementById('go-cause').textContent = reasonText;
+
+      syncScreens();
+    }
+
+    function handleObstacleHit(obs) {
+      if (state.invincibleTimer > 0) return;
+
+      // 1. Check Ghost Board Shield
+      if (state.powerups.board) {
+        state.powerups.board = false;
+        state.invincibleTimer = 1.6;
+        state.cameraShake = 0.5;
+        audio.playCrash();
+        showToast('GHOST BOARD SHATTERED — YOU SURVIVED!');
+        triggerHaptic([40, 30, 40]);
+        return;
+      }
+
+      // 2. First hit brings the Grim Reaper & Wraith Hound dangerously close; second hit = Game Over!
+      if (state.chaserHitStage === 0) {
+        state.chaserHitStage = 1;
+        state.chaserRecoverTimer = 11.0;
+        state.fearLevel = 0.85;
+        state.invincibleTimer = 1.5;
+        state.cameraShake = 0.65;
+        audio.playJumpScare();
+        showToast('THE GRIM REAPER IS RIGHT BEHIND YOU!');
+        triggerHaptic([60, 30, 80]);
+      } else {
+        triggerGameOver(`Claimed by the Grim Reaper after colliding with a ${obs.type.toLowerCase()} in ${ZONES[state.currentZone].name}.`);
+      }
+    }
+
+    // =========================================================================
+    // 13. UI & 3D CHARACTER PREVIEW CARD RENDERING
+    // =========================================================================
+    // Render a real 3D WebGL snapshot of each 3D Ghost model for the Choose Ghost cards
+    const cardPreviewCache = {};
+    function getGhost3DPreviewDataURL(ghostDef) {
+      if (cardPreviewCache[ghostDef.id]) return cardPreviewCache[ghostDef.id];
+      try {
+        const pScene = new THREE.Scene();
+        const pCam = new THREE.PerspectiveCamera(42, 1.35, 0.1, 20);
+        pCam.position.set(0.55, 1.65, 3.15);
+        pCam.lookAt(0, 1.35, 0);
+
+        pScene.add(new THREE.AmbientLight(0xffffff, 0.9));
+        const pKey = new THREE.DirectionalLight(ghostDef.glowHex, 2.8);
+        pKey.position.set(2, 4, 3);
+        const pRim = new THREE.DirectionalLight(0xef4444, 2.2);
+        pRim.position.set(-3, 2, -2);
+        pScene.add(pKey, pRim);
+
+        const gMesh = buildPlayableGhostMesh(ghostDef);
+        gMesh.rotation.y = Math.PI - 0.32;
+        pScene.add(gMesh);
+
+        const prevSize = new THREE.Vector2();
+        renderer.getSize(prevSize);
+        renderer.setSize(220, 162, false);
+        renderer.render(pScene, pCam);
+        const dataUrl = renderer.domElement.toDataURL('image/png');
+        renderer.setSize(prevSize.x, prevSize.y, false);
+        cardPreviewCache[ghostDef.id] = dataUrl;
+        return dataUrl;
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function renderMenuCards() {
+      document.getElementById('menu-best-score').textContent = saveData.bestScore.toLocaleString();
+      document.getElementById('menu-bank-souls').textContent = saveData.totalSouls.toLocaleString();
+
+      const charGrid = document.getElementById('char-grid');
+      charGrid.innerHTML = '';
+      GHOST_CHARACTERS.forEach((c) => {
+        const isSel = c.id === saveData.selectedGhost;
+        const card = document.createElement('div');
+        card.className = `char-card ${isSel ? 'selected' : ''}`;
+        const hexStr = '#' + c.glowHex.toString(16).padStart(6, '0');
+        const previewImg = getGhost3DPreviewDataURL(c);
+        card.innerHTML = `
+          <div style="width:100%; height:112px; border-radius:8px; overflow:hidden; background:radial-gradient(circle at 50% 45%, rgba(45,212,191,0.16), rgba(3,5,10,0.95)); border:1px solid rgba(148,163,184,0.16); display:flex; align-items:center; justify-content:center; margin-bottom:4px;">
+            ${previewImg ? `<img src="${previewImg}" alt="${c.name} 3D Model" style="height:100%; object-fit:contain; filter:drop-shadow(0 0 12px ${hexStr});" />` : ''}
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-family:var(--font-display); font-weight:700; font-size:15px; color:#f8fafc;">${c.name}</span>
+            <span style="font-size:11px; color:${hexStr}; font-weight:600;">${isSel ? '3D ACTIVE' : 'SELECT 3D'}</span>
+          </div>
+          <div style="font-size:11px; color:#cbd5e1; font-weight:500;">${c.title}</div>
+          <div style="font-size:11px; color:var(--text-muted); line-height:1.4;">${c.desc}</div>
+          <div style="margin-top:auto; padding-top:4px; font-size:11px; color:${hexStr}; font-weight:600;">Spirit Trait · ${c.perk}</div>
+        `;
+        card.addEventListener('click', () => {
+          saveData.selectedGhost = c.id;
+          persistSaveData();
+          rebuildPlayerCharacter();
+          renderMenuCards();
+          audio.playSoulCollect();
+        });
+        charGrid.appendChild(card);
+      });
+
+      const missionContainer = document.getElementById('mission-list');
+      missionContainer.innerHTML = '';
+      saveData.missions.forEach((m) => {
+        const pct = Math.min(100, Math.round((m.progress / m.target) * 100));
+        const item = document.createElement('div');
+        item.className = 'mission-item';
+        item.innerHTML = `
+          <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600;">
+            <span style="color:${m.completed ? '#2dd4bf' : '#e2e8f0'};">${m.label}</span>
+            <span class="tabular-nums" style="color:var(--text-muted);">${m.progress}/${m.target}</span>
+          </div>
+          <div class="mission-progress-bar">
+            <div class="mission-progress-fill" style="width:${pct}%;"></div>
+          </div>
+        `;
+        missionContainer.appendChild(item);
+      });
+    }
+
+    function updateTouchVisibility() {
+      const el = document.getElementById('mobile-controls');
+      const show = state.screen === 'playing' && (
+        deviceConfig.touchButtonsMode === 'on' ||
+        (deviceConfig.touchButtonsMode === 'auto' && (deviceConfig.isTouchDevice || window.innerWidth <= 900))
+      );
+      el.classList.toggle('hidden', !show);
+    }
+
+    function syncScreens() {
+      document.getElementById('screen-splash').classList.toggle('hidden', state.screen !== 'splash');
+      document.getElementById('screen-menu').classList.toggle('hidden', state.screen !== 'menu');
+      document.getElementById('screen-pause').classList.toggle('hidden', state.screen !== 'paused');
+      document.getElementById('screen-gameover').classList.toggle('hidden', state.screen !== 'gameover');
+      if (state.screen === 'menu') renderMenuCards();
+      updateTouchVisibility();
+    }
+
+    function updateHudDOM() {
+      document.getElementById('hud-score').textContent = Math.floor(state.score).toLocaleString();
+      document.getElementById('hud-souls').textContent = state.souls.toLocaleString();
+      document.getElementById('hud-distance').textContent = `${Math.floor(state.distance)}m`;
+      document.getElementById('hud-zone').textContent = ZONES[state.currentZone].name;
+
+      const fearPct = Math.round(state.fearLevel * 100);
+      document.getElementById('hud-fear-pct').textContent = `${fearPct}%`;
+      document.getElementById('hud-fear-bar').style.width = `${fearPct}%`;
+      document.getElementById('hud-score').classList.toggle('chroma-danger', state.fearLevel > 0.65);
+
+      // Active Power-Up Timers
+      const strip = document.getElementById('powerup-strip');
+      let html = '';
+      if (state.powerups.lantern > 0) {
+        html += `<div class="powerup-badge" style="border-color:#f59e0b; color:#fde68a;"><span>LANTERN REVEAL</span><span class="tabular-nums">${state.powerups.lantern.toFixed(1)}s</span></div>`;
+      }
+      if (state.powerups.magnet > 0) {
+        html += `<div class="powerup-badge" style="border-color:#a855f7; color:#e9d5ff;"><span>SOUL MAGNET</span><span class="tabular-nums">${state.powerups.magnet.toFixed(1)}s</span></div>`;
+      }
+      if (state.powerups.wings > 0) {
+        html += `<div class="powerup-badge" style="border-color:#38bdf8; color:#bae6fd;"><span>SPECTRAL WINGS</span><span class="tabular-nums">${state.powerups.wings.toFixed(1)}s</span></div>`;
+      }
+      if (state.powerups.board) {
+        html += `<div class="powerup-badge" style="border-color:#10b981; color:#a7f3d0;"><span>GHOST BOARD SHIELD</span><span>READY</span></div>`;
+      }
+      strip.innerHTML = html;
+    }
+
+    // =========================================================================
+    // 14. KEYBOARD, TOUCH SWIPE & GYROSCOPE TILT CONTROLS
+    // =========================================================================
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'h' || e.key === 'H') {
+        document.getElementById('bottom-dock-wrapper').classList.toggle('collapsed');
+        return;
+      }
+      if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+        if (state.screen === 'playing') {
+          state.screen = 'paused';
+          syncScreens();
+        } else if (state.screen === 'paused') {
+          state.screen = 'playing';
+          syncScreens();
+        }
+        return;
+      }
+      if (state.screen !== 'playing') return;
+
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        moveLane(-1);
+      } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+        e.preventDefault();
+        moveLane(1);
+      } else if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
+        e.preventDefault();
+        triggerJump();
+      } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+        e.preventDefault();
+        triggerRoll();
+      } else if (e.key === 'e' || e.key === 'E') {
+        e.preventDefault();
+        activateGhostBoard();
+      }
+    });
+
+    // Touch Swipe Gesture Engine + Visual Swipe Trail
+    const fxCanvas = document.getElementById('fx-canvas');
+    const fxCtx = fxCanvas.getContext('2d');
+    function resizeFxCanvas() {
+      fxCanvas.width = window.innerWidth;
+      fxCanvas.height = window.innerHeight;
+    }
+    resizeFxCanvas();
+
+    const swipePoints = [];
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+    let swipeHandled = false;
+    let lastTapTime = 0;
+
+    window.addEventListener('touchstart', (e) => {
+      if (e.target.closest('button') || e.target.closest('.char-card')) return;
+      const t = e.touches[0];
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+      touchStartTime = performance.now();
+      swipeHandled = false;
+      swipePoints.push({ x: t.clientX, y: t.clientY, alpha: 1.0 });
+
+      // Double-tap anywhere during run activates Ghost Board shield
+      if (state.screen === 'playing' && touchStartTime - lastTapTime < 260) {
+        activateGhostBoard();
+      }
+      lastTapTime = touchStartTime;
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+      if (state.screen !== 'playing') return;
+      const t = e.touches[0];
+      swipePoints.push({ x: t.clientX, y: t.clientY, alpha: 1.0 });
+      if (swipeHandled) return;
+
+      const dx = t.clientX - touchStartX;
+      const dy = t.clientY - touchStartY;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > 34) {
+        swipeHandled = true;
+        if (Math.abs(dx) > Math.abs(dy)) {
+          moveLane(dx > 0 ? 1 : -1);
+        } else {
+          if (dy < 0) triggerJump();
+          else triggerRoll();
+        }
+      }
+    }, { passive: true });
+
+    // On-screen Mobile Thumb Buttons
+    function bindTouchButton(id, fn) {
+      const btn = document.getElementById(id);
+      const handler = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        fn();
+      };
+      btn.addEventListener('touchstart', handler, { passive: false });
+      btn.addEventListener('click', handler);
+    }
+    bindTouchButton('touch-left', () => moveLane(-1));
+    bindTouchButton('touch-right', () => moveLane(1));
+    bindTouchButton('touch-jump', () => triggerJump());
+    bindTouchButton('touch-roll', () => triggerRoll());
+    bindTouchButton('touch-board', () => activateGhostBoard());
+
+    // Gyroscope / Tilt-to-Steer (Android & iOS with requestPermission)
+    async function toggleTiltControl() {
+      if (!deviceConfig.tiltEnabled) {
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          try {
+            const res = await DeviceOrientationEvent.requestPermission();
+            if (res !== 'granted') {
+              showToast('iOS Gyroscope Permission Denied');
+              return;
+            }
+          } catch (err) {}
+        }
+        deviceConfig.tiltEnabled = true;
+        deviceConfig.tiltBaselineGamma = null;
+        showToast('TILT-TO-STEER (GYRO) ENABLED');
+      } else {
+        deviceConfig.tiltEnabled = false;
+        deviceConfig.tiltBaselineGamma = null;
+        showToast('TILT-TO-STEER OFF');
+      }
+      document.getElementById('btn-opt-tilt').textContent = `Tilt-to-Steer (Gyro): ${deviceConfig.tiltEnabled ? 'ON' : 'OFF'}`;
+    }
+
+    window.addEventListener('deviceorientation', (e) => {
+      if (!deviceConfig.tiltEnabled || state.screen !== 'playing' || e.gamma == null) return;
+      if (deviceConfig.tiltBaselineGamma == null) {
+        deviceConfig.tiltBaselineGamma = e.gamma;
+        deviceConfig.tiltGamma = 0;
+        showToast('TILT CONTROL READY — LEAN LEFT OR RIGHT');
+        return;
+      }
+      const relativeGamma = e.gamma - deviceConfig.tiltBaselineGamma;
+      deviceConfig.tiltGamma += (relativeGamma - deviceConfig.tiltGamma) * 0.35;
+    });
+
+    // =========================================================================
+    // 15. UI BUTTON HANDLERS
+    // =========================================================================
+    let splashAutoStartTimer = window.setTimeout(() => {
+      audio.init();
+      startNewRun();
+    }, 3000);
+
+    document.getElementById('btn-splash-start').addEventListener('click', () => {
+      window.clearTimeout(splashAutoStartTimer);
+      audio.init();
+      startNewRun();
+    });
+
+    document.getElementById('btn-menu-play').addEventListener('click', () => startNewRun());
+    document.getElementById('btn-go-again').addEventListener('click', () => startNewRun());
+    document.getElementById('btn-go-menu').addEventListener('click', () => {
+      state.screen = 'menu';
+      syncScreens();
+    });
+
+    document.getElementById('btn-pause-hud').addEventListener('click', () => {
+      if (state.screen === 'playing') {
+        state.screen = 'paused';
+        syncScreens();
+      }
+    });
+
+    document.getElementById('btn-pause-resume').addEventListener('click', () => {
+      state.screen = 'playing';
+      syncScreens();
+    });
+
+    document.getElementById('btn-pause-restart').addEventListener('click', () => startNewRun());
+    document.getElementById('btn-pause-menu').addEventListener('click', () => {
+      state.screen = 'menu';
+      syncScreens();
+    });
+
+    document.getElementById('btn-Menu-open').addEventListener('click', () => {
+      state.screen = 'menu';
+      syncScreens();
+    });
+
+    function toggleSoundMute() {
+      audio.init();
+      audio.setMuted(!audio.muted);
+      const label = `SOUND: ${audio.muted ? 'OFF' : 'ON'}`;
+      document.getElementById('btn-menu-sound').textContent = label;
+      document.getElementById('btn-pause-sound').textContent = label;
+      document.getElementById('btn-mute-hud').style.opacity = audio.muted ? '0.5' : '1';
+    }
+
+    document.getElementById('btn-mute-hud').addEventListener('click', toggleSoundMute);
+    document.getElementById('btn-menu-sound').addEventListener('click', toggleSoundMute);
+    document.getElementById('btn-pause-sound').addEventListener('click', toggleSoundMute);
+
+    document.getElementById('btn-tilt-hud').addEventListener('click', toggleTiltControl);
+    document.getElementById('btn-opt-tilt').addEventListener('click', toggleTiltControl);
+
+    document.getElementById('btn-fullscreen-hud').addEventListener('click', () => {
+      const docEl = document.documentElement;
+      if (!document.fullscreenElement) {
+        (docEl.requestFullscreen || docEl.webkitRequestFullscreen)?.call(docEl);
+      } else {
+        (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+      }
+    });
+
+    function cycleTouchButtonsMode() {
+      const modes = ['auto', 'on', 'off'];
+      const nextIdx = (modes.indexOf(deviceConfig.touchButtonsMode) + 1) % modes.length;
+      deviceConfig.touchButtonsMode = modes[nextIdx];
+      const text = deviceConfig.touchButtonsMode.toUpperCase();
+      document.getElementById('btn-opt-touchbuttons').textContent = `On-Screen Buttons: ${text}`;
+      document.getElementById('btn-touchpad-toggle').textContent = `Touch Pad: ${text}`;
+      updateTouchVisibility();
+    }
+
+    document.getElementById('btn-opt-touchbuttons').addEventListener('click', cycleTouchButtonsMode);
+    document.getElementById('btn-touchpad-toggle').addEventListener('click', cycleTouchButtonsMode);
+
+    document.getElementById('btn-opt-haptics').addEventListener('click', () => {
+      deviceConfig.hapticsEnabled = !deviceConfig.hapticsEnabled;
+      document.getElementById('btn-opt-haptics').textContent = `Haptic Vibration: ${deviceConfig.hapticsEnabled ? 'ON' : 'OFF'}`;
+      if (deviceConfig.hapticsEnabled) triggerHaptic(25);
+    });
+
+    document.getElementById('btn-opt-quality').addEventListener('click', () => {
+      deviceConfig.qualityMode = deviceConfig.qualityMode === 'high' ? 'saver' : 'high';
+      const isHigh = deviceConfig.qualityMode === 'high';
+      renderer.setPixelRatio(isSoftwareGl || !isHigh ? 1 : Math.min(window.devicePixelRatio, 2));
+      document.getElementById('btn-opt-quality').textContent = `Graphics: ${isHigh ? 'High' : 'Battery Saver'}`;
+    });
+
+    let lightingPreset = 'horror'; // 'horror' | 'cinematic' | 'ultraclear'
+    document.getElementById('btn-light-mode').addEventListener('click', () => {
+      const presets = ['horror', 'cinematic', 'ultraclear'];
+      lightingPreset = presets[(presets.indexOf(lightingPreset) + 1) % presets.length];
+      if (lightingPreset === 'horror') {
+        renderer.toneMappingExposure = 1.18;
+        scene.fog.density = 0.0165;
+        ambientLight.intensity = 0.45;
+        hemiLight.intensity = 0.68;
+        trackSpotLight.intensity = 15.5;
+        document.getElementById('btn-light-mode').textContent = 'Scene: Haunted Horror';
+      } else if (lightingPreset === 'cinematic') {
+        renderer.toneMappingExposure = 1.55;
+        scene.fog.density = 0.011;
+        ambientLight.intensity = 1.25;
+        hemiLight.intensity = 1.65;
+        trackSpotLight.intensity = 11.5;
+        document.getElementById('btn-light-mode').textContent = 'Scene: Cinematic';
+      } else {
+        renderer.toneMappingExposure = 1.95;
+        scene.fog.density = 0.0065;
+        ambientLight.intensity = 1.95;
+        hemiLight.intensity = 2.1;
+        trackSpotLight.intensity = 9.5;
+        document.getElementById('btn-light-mode').textContent = 'Scene: Ultra Clear';
+      }
+    });
+
+    function handleMusicModeCycle() {
+      audio.init();
+      const mode = audio.cycleMusicMode();
+      const labelMap = {
+        full: 'Music: Full Horror Mix',
+        theme: 'Music: Haunting Track',
+        chernobyl: 'Music: Chernobyl Bells',
+        synth: 'Music: Synth Only'
+      };
+      document.getElementById('btn-music-mode').textContent = labelMap[mode];
+      document.getElementById('btn-menu-music').textContent = labelMap[mode].toUpperCase();
+      showToast(labelMap[mode].toUpperCase());
+    }
+    document.getElementById('btn-music-mode').addEventListener('click', handleMusicModeCycle);
+    document.getElementById('btn-menu-music').addEventListener('click', handleMusicModeCycle);
+
+    document.getElementById('btn-camera-mode').addEventListener('click', () => {
+      const modes = ['chase', 'close', 'cinematic'];
+      deviceConfig.cameraMode = modes[(modes.indexOf(deviceConfig.cameraMode) + 1) % modes.length];
+      document.getElementById('btn-camera-mode').textContent = `Cam: ${deviceConfig.cameraMode.toUpperCase()}`;
+    });
+
+    document.getElementById('btn-dock-toggle').addEventListener('click', () => {
+      const dock = document.getElementById('bottom-dock-wrapper');
+      dock.classList.toggle('collapsed');
+      document.getElementById('btn-dock-toggle').textContent = dock.classList.contains('collapsed')
+        ? '▴ Show Controls (H)'
+        : '▾ Hide Controls (H)';
+    });
+
+    // Save Standalone Single-File index.html Function
+    function downloadStandaloneHtmlBundle() {
+      const htmlContent = '<!doctype html>\n' + document.documentElement.outerHTML;
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'GHOST_RAIL_ESCAPE_THE_DEAD_STATION.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('DOWNLOADED MOBILE GAME BUNDLE (.HTML)');
+    }
+    document.getElementById('btn-menu-download').addEventListener('click', downloadStandaloneHtmlBundle);
+
+    // Keep the game available offline in the browser/PWA.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+
+    // =========================================================================
+    // 16. MAIN GAME LOOP & SOFTWARE WEBGL FENCE PACING
+    // =========================================================================
+    const clock = new THREE.Clock();
+    let frameId = 0;
+
+    function afterDraw(cb) {
+      const gl = renderer.getContext();
+      if (gl && gl.fenceSync) {
+        const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+        gl.flush();
+        const poll = () => {
+          const st = sync && gl.getSyncParameter(sync, gl.SYNC_STATUS);
+          if (st === gl.UNSIGNALED) {
+            frameId = window.setTimeout(poll, 5);
+          } else {
+            gl.deleteSync(sync);
+            frameId = window.setTimeout(cb, 80);
+          }
+        };
+        frameId = window.setTimeout(poll, 5);
+      } else {
+        frameId = window.setTimeout(cb, 80);
+      }
+    }
+
+    function updateSwipeTrailFX(dt) {
+      fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
+      if (swipePoints.length < 2) return;
+      fxCtx.lineCap = 'round';
+      for (let i = swipePoints.length - 1; i >= 0; i--) {
+        swipePoints[i].alpha -= dt * 4.2;
+        if (swipePoints[i].alpha <= 0) {
+          swipePoints.splice(i, 1);
+        }
+      }
+      for (let i = 1; i < swipePoints.length; i++) {
+        const p0 = swipePoints[i - 1];
+        const p1 = swipePoints[i];
+        fxCtx.strokeStyle = `rgba(45, 212, 191, ${p1.alpha * 0.75})`;
+        fxCtx.lineWidth = p1.alpha * 7;
+        fxCtx.beginPath();
+        fxCtx.moveTo(p0.x, p0.y);
+        fxCtx.lineTo(p1.x, p1.y);
+        fxCtx.stroke();
+      }
+    }
+
+    function tick() {
+      const dt = Math.min(clock.getDelta(), 0.05);
+      const elapsed = clock.getElapsedTime();
+
+      updateSwipeTrailFX(dt);
+
+      const isPlaying = (state.screen === 'playing');
+      const speedRatio = (state.speed - state.baseSpeed) / (state.maxSpeed - state.baseSpeed);
+      audio.update(dt, elapsed, isPlaying, state.fearLevel, speedRatio);
+
+      if (isPlaying) {
+        // 1. Gradual Speed Increase & Distance/Score Accumulation
+        state.speed = Math.min(state.maxSpeed, state.speed + dt * 0.34);
+        const stepDist = state.speed * dt;
+        state.distance += stepDist * 0.45;
+        state.score += stepDist * 0.9;
+        advanceMission('dist600', state.distance);
+
+        // 2. Dynamic Haunted Zone Transitions every 400m
+        const targetZone = Math.floor(state.distance / 400) % ZONES.length;
+        if (targetZone !== state.currentZone) {
+          state.currentZone = targetZone;
+          updateSegmentZoneVisuals(targetZone);
+          showZoneBanner(ZONES[targetZone].banner);
+          audio.playGhostTrainHorn();
+        }
+
+        // Smoothly interpolate fog, hemisphere & cinematic rim lighting to current zone
+        const zDef = ZONES[state.currentZone];
+        _colorA.setHex(zDef.fogHex);
+        scene.background.lerp(_colorA, dt * 1.5);
+        scene.fog.color.lerp(_colorA, dt * 1.5);
+        _colorB.setHex(zDef.lightHex);
+        hemiLight.color.lerp(_colorB, dt * 1.5);
+        _colorA.setHex(zDef.rimHex || zDef.lightHex);
+        rimDirLight.color.lerp(_colorA, dt * 1.8);
+
+        // 3. Gyroscope Tilt Steering
+        if (deviceConfig.tiltEnabled) {
+          deviceConfig.tiltCooldown -= dt;
+          if (deviceConfig.tiltCooldown <= 0) {
+            if (deviceConfig.tiltGamma > 11) {
+              moveLane(1);
+              deviceConfig.tiltCooldown = 0.35;
+            } else if (deviceConfig.tiltGamma < -11) {
+              moveLane(-1);
+              deviceConfig.tiltCooldown = 0.35;
+            }
+          }
+        }
+
+        // 4. Power-Up Timers
+        ['lantern', 'magnet', 'wings'].forEach((k) => {
+          if (state.powerups[k] > 0) {
+            state.powerups[k] = Math.max(0, state.powerups[k] - dt);
+          }
+        });
+
+        if (state.invincibleTimer > 0) state.invincibleTimer -= dt;
+        if (state.lightOutTimer > 0) state.lightOutTimer -= dt;
+
+        // Haunted station broken fluorescent flicker + lightning flash during scary event
+        const flicker = (Math.sin(elapsed * 29) * Math.sin(elapsed * 53) > 0.72) ? 0.35 : 1.0;
+        const stormSurge = state.lightOutTimer > 0 ? (Math.sin(elapsed * 42) > 0.78 ? 2.4 : 0.18) : 1.0;
+        dirLight.intensity = (lightingPreset === 'horror' ? 1.35 : 2.5) * flicker * stormSurge;
+        lanternSpotLight.intensity = state.powerups.lantern > 0 ? 14.0 : 0;
+
+        // Animate 3D Haunted Ash & Ectoplasm Spore Particles
+        const pArr = hauntedParticles.geometry.attributes.position.array;
+        for (let i = 0; i < PARTICLE_COUNT; i++) {
+          pArr[i * 3 + 1] += Math.sin(elapsed * 2 + i) * 0.008;
+          pArr[i * 3 + 2] += stepDist * 0.65;
+          if (pArr[i * 3 + 2] > 12) {
+            pArr[i * 3 + 2] = -105;
+            pArr[i * 3] = (Math.random() - 0.5) * 18;
+          }
+        }
+        hauntedParticles.geometry.attributes.position.needsUpdate = true;
+
+        // 5. Player Horizontal Lane Damping & Vertical Jump/Roll/Wings Kinematics
+        const targetX = LANES[state.laneIndex];
+        const laneDamp = saveData.selectedGhost === 'kid' ? 15 : 11.5;
+        state.currentX = THREE.MathUtils.damp(state.currentX, targetX, laneDamp, dt);
+
+        if (state.powerups.wings > 0) {
+          // Spectral Wings: Fly high above the tracks for 8 seconds!
+          state.isJumping = false;
+          state.isRolling = false;
+          state.currentY = THREE.MathUtils.damp(state.currentY, 4.4, 6, dt);
+        } else {
+          if (state.isJumping) {
+            state.currentY += state.velY * dt;
+            state.velY -= 28.5 * dt;
+            if (state.currentY <= 0) {
+              state.currentY = 0;
+              state.velY = 0;
+              state.isJumping = false;
+            }
+          } else {
+            state.currentY = THREE.MathUtils.damp(state.currentY, 0, 10, dt);
+          }
+
+          if (state.isRolling) {
+            state.rollTimer -= dt;
+            if (state.rollTimer <= 0) state.isRolling = false;
+          }
+        }
+
+        // Update Player 3D Ghost Transform & Articulated 3D Limb Animations
+        if (playerMesh) {
+          const floatBob = Math.sin(elapsed * 6.5) * 0.08;
+          playerMesh.position.set(state.currentX, state.currentY + floatBob, 0);
+          playerMesh.rotation.z = (state.currentX - targetX) * 0.14;
+
+          // Squash vertically when rolling/sliding under chains or cobwebs
+          const targetScaleY = state.isRolling ? 0.46 : 1.0;
+          playerMesh.scale.y = THREE.MathUtils.damp(playerMesh.scale.y, targetScaleY, 16, dt);
+
+          // Blink when invincible
+          playerMesh.visible = state.invincibleTimer > 0 ? (Math.floor(elapsed * 18) % 2 === 0) : true;
+
+          const ud = playerMesh.userData;
+          // 3D Arm swing & Head look animation
+          if (ud.leftArm && ud.rightArm) {
+            ud.leftArm.rotation.x = Math.sin(elapsed * 10) * 0.35;
+            ud.rightArm.rotation.x = -Math.sin(elapsed * 10) * 0.35;
+          }
+          if (ud.headGroup) {
+            ud.headGroup.rotation.y = Math.sin(elapsed * 3.5) * 0.12;
+          }
+          // Sinusoidal trailing mist tail
+          ud.tailSegments.forEach((seg, idx) => {
+            seg.position.x = Math.sin(elapsed * 9 - idx * 0.7) * 0.12 * (idx + 1) * 0.35;
+          });
+          // Attachments
+          ud.wingsGroup.visible = state.powerups.wings > 0;
+          if (ud.wingsGroup.visible) {
+            ud.leftWing.rotation.y = Math.sin(elapsed * 14) * 0.42;
+            ud.rightWing.rotation.y = -Math.sin(elapsed * 14) * 0.42;
+          }
+          ud.boardGroup.visible = state.powerups.board;
+          ud.lanternVisual.visible = state.powerups.lantern > 0;
+          if (ud.lanternVisual.visible) {
+            ud.lanternVisual.position.set(Math.cos(elapsed * 3) * 0.85, 2.15, Math.sin(elapsed * 3) * 0.85);
+          }
+          ud.shadowDisc.position.y = -state.currentY + 0.03;
+
+          playerAuraLight.position.set(state.currentX, state.currentY + 1.8, 0.8);
+          trackSpotLight.position.set(state.currentX * 0.5, state.currentY + 5.2, 4.5);
+          trackSpotLight.target.position.set(state.currentX * 0.65, 0.6, -38);
+          lanternSpotLight.position.set(state.currentX, state.currentY + 2.6, 0);
+          lanternSpotLight.target.position.set(state.currentX, 0.5, -34);
+        }
+
+        // 6. Chaser (3D Grim Reaper + 3D Wraith Hound) Proximity, Crimson Glow & Fear Meter
+        if (state.chaserHitStage === 1) {
+          state.chaserRecoverTimer -= dt;
+          state.fearLevel = THREE.MathUtils.damp(state.fearLevel, 0.82, 3, dt);
+          if (state.chaserRecoverTimer <= 0) {
+            state.chaserHitStage = 0;
+            showToast('YOU OUTRAN THE REAPER... FOR NOW');
+          }
+        } else {
+          state.fearLevel = THREE.MathUtils.damp(state.fearLevel, 0.14 + speedRatio * 0.22, 1.5, dt);
+        }
+
+        const chaserTargetZ = state.chaserHitStage === 1 ? 2.55 : 4.75;
+        chaserGroup.position.x = THREE.MathUtils.damp(chaserGroup.position.x, state.currentX, 5.5, dt);
+        chaserGroup.position.z = THREE.MathUtils.damp(chaserGroup.position.z, chaserTargetZ, 4, dt);
+        chaserGroup.position.y = Math.sin(elapsed * 5.5) * 0.12;
+        reaperPointLight.position.set(chaserGroup.position.x, 2.8, chaserGroup.position.z - 0.5);
+        chaserGroup.userData.scytheGroup.rotation.x = Math.sin(elapsed * 6) * 0.38;
+        chaserGroup.userData.houndLegs.forEach((leg, i) => {
+          leg.rotation.x = Math.sin(elapsed * 16 + i * 1.5) * 0.65;
+        });
+
+        // Heartbeat Red Screen Pulse when Reaper is close
+        const hbLayer = document.getElementById('heartbeat-layer');
+        if (state.fearLevel > 0.35) {
+          const pulse = 0.5 + 0.5 * Math.sin(elapsed * (8 + state.fearLevel * 8));
+          hbLayer.style.opacity = String((state.fearLevel - 0.3) * 0.95 * pulse);
+        } else {
+          hbLayer.style.opacity = '0';
+        }
+
+        // 7. Recycle Infinite Track Segments & Rotate Waiting Ghost Passengers' Heads
+        trackSegments.forEach((seg) => {
+          seg.position.z += stepDist;
+          if (seg.position.z > SEGMENT_LENGTH) {
+            seg.position.z -= NUM_SEGMENTS * SEGMENT_LENGTH;
+          }
+        });
+
+        platformGhosts.forEach((pg) => {
+          pg.getWorldPosition(_vec3A);
+          const dx = state.currentX - _vec3A.x;
+          const dz = 0 - _vec3A.z;
+          pg.userData.head.rotation.y = Math.atan2(dx, dz);
+        });
+
+        // 8. Spawn New Obstacles, Souls & Aerial Orbs
+        state.spawnTimer -= dt;
+        if (state.spawnTimer <= 0) {
+          state.spawnTimer = THREE.MathUtils.lerp(1.15, 0.62, speedRatio);
+          spawnObstacleRow(-125);
+          if (state.powerups.wings > 0) {
+            // Bonus aerial souls while flying with Spectral Wings
+            const skyOrb = new THREE.Mesh(new THREE.SphereGeometry(0.25, 10, 10), mats.glowSoul);
+            skyOrb.position.set(LANES[state.laneIndex], 4.5, -55);
+            scene.add(skyOrb);
+            activeSouls.push({ mesh: skyOrb, collected: false });
+          }
+        }
+
+        // 9. Update Obstacles & Check Collisions
+        for (let i = activeObstacles.length - 1; i >= 0; i--) {
+          const obs = activeObstacles[i];
+          obs.mesh.position.z += (state.speed + obs.movingSpeed) * dt;
+          obs.mesh.userData.beacon.visible = state.powerups.lantern > 0;
+
+          if (obs.type === 'COFFIN') {
+            obs.mesh.position.y = Math.sin(elapsed * 4 + i) * 0.18;
+          }
+
+          const zDist = Math.abs(obs.mesh.position.z);
+          const xDist = Math.abs(obs.mesh.position.x - state.currentX);
+          const hitHalfZ = obs.type === 'TRAIN' ? 4.6 : 0.65;
+
+          // Mission tracking when cleanly passing an obstacle in your lane
+          if (!obs.passed && obs.mesh.position.z > hitHalfZ + 0.5) {
+            obs.passed = true;
+            if (xDist < 1.1) {
+              if (state.isJumping) advanceMission('jumps20', 1);
+              if (state.isRolling) advanceMission('rolls12', 1);
+            }
+          }
+
+          if (zDist < hitHalfZ && xDist < 0.88 && state.powerups.wings <= 0) {
+            let collided = false;
+            if (obs.type === 'TRAIN') {
+              collided = state.currentY < 3.1;
+            } else if (obs.type === 'CHAINS' || obs.type === 'COBWEB') {
+              // High barriers: must roll/slide under!
+              collided = !state.isRolling;
+            } else {
+              // Ground hurdles (COFFIN, TOMBSTONE, GATE): must jump over!
+              collided = state.currentY < 1.15;
+            }
+            if (collided) {
+              handleObstacleHit(obs);
+            }
+          }
+
+          if (obs.mesh.position.z > 16) {
+            scene.remove(obs.mesh);
+            activeObstacles.splice(i, 1);
+          }
+        }
+
+        // 10. Update Soul Orbs & Soul Magnet Attraction
+        const pickupRadius = saveData.selectedGhost === 'bride' ? 1.55 : 1.15;
+        for (let i = activeSouls.length - 1; i >= 0; i--) {
+          const s = activeSouls[i];
+          s.mesh.position.z += stepDist;
+          s.mesh.rotation.y += dt * 3.2;
+
+          // Soul Magnet pulls all souls across lanes toward player
+          if (state.powerups.magnet > 0 && s.mesh.position.z > -32 && s.mesh.position.z < 4) {
+            s.mesh.position.x = THREE.MathUtils.damp(s.mesh.position.x, state.currentX, 9, dt);
+            s.mesh.position.y = THREE.MathUtils.damp(s.mesh.position.y, state.currentY + 1.1, 9, dt);
+          }
+
+          const distToPlayer = Math.hypot(
+            s.mesh.position.x - state.currentX,
+            s.mesh.position.y - (state.currentY + 1.0),
+            s.mesh.position.z
+          );
+
+          if (distToPlayer < pickupRadius) {
+            state.souls += 1;
+            state.score += 25;
+            advanceMission('souls50', 1);
+            audio.playSoulCollect();
+            triggerHaptic(10);
+            scene.remove(s.mesh);
+            activeSouls.splice(i, 1);
+            continue;
+          }
+
+          if (s.mesh.position.z > 12) {
+            scene.remove(s.mesh);
+            activeSouls.splice(i, 1);
+          }
+        }
+
+        // 11. Update Power-Up Pickups
+        const bonusDur = saveData.selectedGhost === 'doctor' ? 2.0 : 0.0;
+        for (let i = activePowerups.length - 1; i >= 0; i--) {
+          const p = activePowerups[i];
+          p.mesh.position.z += stepDist;
+          p.mesh.rotation.y += dt * 2.5;
+          p.mesh.rotation.x += dt * 1.5;
+
+          const dist = Math.hypot(
+            p.mesh.position.x - state.currentX,
+            p.mesh.position.y - (state.currentY + 1.1),
+            p.mesh.position.z
+          );
+
+          if (dist < 1.35) {
+            audio.playPowerup();
+            triggerHaptic([25, 30, 25]);
+            if (p.type === 'lantern') {
+              state.powerups.lantern = 10 + bonusDur;
+              showToast('ELDRITCH LANTERN: REVEALING OBSTACLES IN FOG!');
+            } else if (p.type === 'magnet') {
+              state.powerups.magnet = 10 + bonusDur;
+              showToast('SOUL MAGNET: ATTRACTING ALL LOST SOULS!');
+            } else if (p.type === 'wings') {
+              state.powerups.wings = 8 + bonusDur;
+              showToast('SPECTRAL WINGS: FLYING ABOVE THE TRACKS!');
+            } else if (p.type === 'board') {
+              state.powerups.board = true;
+              showToast('GHOST BOARD: SURVIVES ONE FATAL HIT!');
+            }
+            scene.remove(p.mesh);
+            activePowerups.splice(i, 1);
+            continue;
+          }
+
+          if (p.mesh.position.z > 12) {
+            scene.remove(p.mesh);
+            activePowerups.splice(i, 1);
+          }
+        }
+
+        // 12. Random Scary Events Timer
+        state.scareEventTimer -= dt;
+        if (state.scareEventTimer <= 0) {
+          state.scareEventTimer = 11 + Math.random() * 10;
+          triggerRandomScareEvent();
+        }
+
+        // 13. Smooth Camera Chase Choreography + Camera Shake
+        if (state.cameraShake > 0) state.cameraShake = Math.max(0, state.cameraShake - dt * 1.4);
+        const shakeX = (Math.random() - 0.5) * state.cameraShake * 0.9;
+        const shakeY = (Math.random() - 0.5) * state.cameraShake * 0.9;
+
+        const camDist = deviceConfig.cameraMode === 'close' ? 6.2 : (deviceConfig.cameraMode === 'cinematic' ? 9.6 : 7.8);
+        const camHeight = (deviceConfig.cameraMode === 'close' ? 3.5 : 4.3) + state.currentY * 0.55;
+        camera.position.x = THREE.MathUtils.damp(camera.position.x, state.currentX * 0.62 + shakeX, 8, dt);
+        camera.position.y = THREE.MathUtils.damp(camera.position.y, camHeight + shakeY, 7, dt);
+        camera.position.z = THREE.MathUtils.damp(camera.position.z, camDist, 6, dt);
+        camera.lookAt(state.currentX * 0.35, 1.6 + state.currentY * 0.4, -14);
+
+        updateHudDOM();
+      } else {
+        // Idle Menu / Showcase Camera Orbit around the selected Ghost
+        if (playerMesh) {
+          playerMesh.position.set(0, Math.sin(elapsed * 3) * 0.12, 0);
+          playerMesh.userData.tailSegments.forEach((seg, idx) => {
+            seg.position.x = Math.sin(elapsed * 5 - idx * 0.6) * 0.1;
+          });
+        }
+        chaserGroup.position.set(-1.6, Math.sin(elapsed * 2.5) * 0.1, 3.8);
+        camera.position.set(Math.sin(elapsed * 0.35) * 2.4, 3.1, 6.2);
+        camera.lookAt(0, 1.5, -2);
+      }
+
+      renderer.render(scene, camera);
+
+      if (isSoftwareGl) afterDraw(tick);
+      else frameId = requestAnimationFrame(tick);
+    }
+
+    // Handle Responsive Viewport Resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      resizeFxCanvas();
+      updateTouchVisibility();
+    });
+
+    // Kick off animation loop
+    syncScreens();
+    tick();
+  })();
+  </script>
+</body>
+</html>
