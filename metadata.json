@@ -1,0 +1,6 @@
+{
+  "name": "Ghost Rail: Escape the Dead Station",
+  "description": "A dark, terrifying 3D endless runner game set in a haunted subway station with 4 playable ghosts, dynamic horror zones, procedural Web Audio soundscapes, and full mobile touch/tilt controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
